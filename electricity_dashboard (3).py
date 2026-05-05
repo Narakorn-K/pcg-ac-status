@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from urllib.parse import quote
 
 # ─── Page Config ──────────────────────────────────────────────────────────────
-st.set_page_config(page_title="Electricity Dashboard", layout="wide", page_icon="⚡")
+st.set_page_config(page_title="Electricity Dashboard", layout="wide", page_icon="💡")
 
 # ─── Google Sheet Config ──────────────────────────────────────────────────────
 SHEET_ID   = "1Ym2yfzkLTyLTtJtLZSSgWoeew_IPWUaI_u6d45jKUnw"
@@ -35,7 +35,7 @@ st.markdown("""
         color:#1a237e; margin-bottom:4px;
     }
     .week-subtitle, .month-subtitle {
-        font-size:15px; text-align:center; color:#546e7a;
+        font-size:16px; text-align:center; color:#546e7a;
         margin-bottom:20px; font-weight:500;
     }
     .kpi-card {
@@ -43,17 +43,17 @@ st.markdown("""
         box-shadow:0 2px 10px rgba(0,0,0,0.08); text-align:center;
         border-top: 4px solid #1565c0;
     }
-    .kpi-label {font-size:12px; color:#666; font-weight:600; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;}
+    .kpi-label {font-size:16px; color:#666; font-weight:600; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;}
     .kpi-value {font-size:26px; font-weight:800; color:#1a237e;}
-    .kpi-unit  {font-size:14px; font-weight:400;}
-    .kpi-sub   {font-size:12px; color:#999; margin-top:4px;}
+    .kpi-unit  {font-size:18px; font-weight:400;}
+    .kpi-sub   {font-size:16px; color:#999; margin-top:4px;}
     .kpi-on    {color:#e65100 !important;}
     .kpi-off   {color:#2e7d32 !important;}
     .kpi-cost  {color:#6a1b9a !important;}
     .up   {color:#e53935; font-weight:700;}
     .down {color:#43a047; font-weight:700;}
     .section-header {
-        font-size:16px; font-weight:700; color:#1a237e;
+        font-size:18px; font-weight:700; color:#1a237e;
         border-left:4px solid #1565c0; padding-left:10px;
         margin:28px 0 14px;
     }
@@ -169,75 +169,6 @@ with st.sidebar:
     st.caption(f"• On Peak  : {ON_PEAK_RATE + FT_ADJ:.4f} ฿/kWh")
     st.caption(f"• Off Peak : {OFF_PEAK_RATE + FT_ADJ:.4f} ฿/kWh")
     st.caption(f"• Ft Surcharge : {FT_ADJ} ฿/kWh")
-    st.markdown("---")
-    st.markdown("### 🔤 ขนาดตัวอักษร")
-    font_size_weekly = st.slider(
-        "📋 Weekly Overview", min_value=10, max_value=24, value=14, step=1,
-        key="font_weekly", help="ปรับขนาดฟอนต์สำหรับหน้า Weekly"
-    )
-    font_size_monthly = st.slider(
-        "📅 Monthly Dashboard", min_value=10, max_value=24, value=14, step=1,
-        key="font_monthly", help="ปรับขนาดฟอนต์สำหรับหน้า Monthly"
-    )
-
-# ─── Font Size CSS injection ──────────────────────────────────────────────────
-st.markdown(f"""
-<style>
-    /* Weekly tab font sizes */
-    div[data-testid="stTabsContent"] > div:nth-child(1) p,
-    div[data-testid="stTabsContent"] > div:nth-child(1) li,
-    div[data-testid="stTabsContent"] > div:nth-child(1) span,
-    div[data-testid="stTabsContent"] > div:nth-child(1) div,
-    div[data-testid="stTabsContent"] > div:nth-child(1) label {{
-        font-size: {font_size_weekly}px !important;
-    }}
-    div[data-testid="stTabsContent"] > div:nth-child(1) .main-title {{
-        font-size: {font_size_weekly + 12}px !important;
-    }}
-    div[data-testid="stTabsContent"] > div:nth-child(1) .week-subtitle {{
-        font-size: {font_size_weekly + 1}px !important;
-    }}
-    div[data-testid="stTabsContent"] > div:nth-child(1) .kpi-value {{
-        font-size: {font_size_weekly + 12}px !important;
-    }}
-    div[data-testid="stTabsContent"] > div:nth-child(1) .kpi-label {{
-        font-size: {font_size_weekly - 2}px !important;
-    }}
-    div[data-testid="stTabsContent"] > div:nth-child(1) .kpi-sub {{
-        font-size: {font_size_weekly - 2}px !important;
-    }}
-    div[data-testid="stTabsContent"] > div:nth-child(1) .section-header {{
-        font-size: {font_size_weekly + 2}px !important;
-    }}
-
-    /* Monthly tab font sizes */
-    div[data-testid="stTabsContent"] > div:nth-child(2) p,
-    div[data-testid="stTabsContent"] > div:nth-child(2) li,
-    div[data-testid="stTabsContent"] > div:nth-child(2) span,
-    div[data-testid="stTabsContent"] > div:nth-child(2) div,
-    div[data-testid="stTabsContent"] > div:nth-child(2) label {{
-        font-size: {font_size_monthly}px !important;
-    }}
-    div[data-testid="stTabsContent"] > div:nth-child(2) .main-title {{
-        font-size: {font_size_monthly + 12}px !important;
-    }}
-    div[data-testid="stTabsContent"] > div:nth-child(2) .month-subtitle {{
-        font-size: {font_size_monthly + 1}px !important;
-    }}
-    div[data-testid="stTabsContent"] > div:nth-child(2) .kpi-value {{
-        font-size: {font_size_monthly + 12}px !important;
-    }}
-    div[data-testid="stTabsContent"] > div:nth-child(2) .kpi-label {{
-        font-size: {font_size_monthly - 2}px !important;
-    }}
-    div[data-testid="stTabsContent"] > div:nth-child(2) .kpi-sub {{
-        font-size: {font_size_monthly - 2}px !important;
-    }}
-    div[data-testid="stTabsContent"] > div:nth-child(2) .section-header {{
-        font-size: {font_size_monthly + 2}px !important;
-    }}
-</style>
-""", unsafe_allow_html=True)
 
 # ─── Load Data ────────────────────────────────────────────────────────────────
 with st.spinner("⏳ กำลังดึงข้อมูลจาก Google Sheet..."):
@@ -449,7 +380,7 @@ with tab_weekly:
 
     st.markdown(f"""
 <div style="background:#f8f9ff;border-left:4px solid #1565c0;border-radius:8px;
-            padding:14px 22px;margin-top:4px;font-size:14px;line-height:2.0;color:#333;">
+            padding:14px 22px;margin-top:4px;font-size:16px;line-height:2.0;color:#333;">
   📋 <b>สรุปการใช้ไฟฟ้า &mdash; {summary_dept} &nbsp;|&nbsp; {sel_label}</b><br>
   สัปดาห์นี้ใช้ไฟฟ้ารวมทั้งสิ้น <b>{cur_total_w:,.0f} kWh</b><br>
   &nbsp;&nbsp;&nbsp;
@@ -525,7 +456,7 @@ with tab_weekly:
             yref=f"y{i}", xref=f"x{i}",
             text=f"<b>{arrow_txt}</b>",
             showarrow=False,
-            font=dict(color=clr, size=11),
+            font=dict(color=clr, size=16),
             xanchor="left",
         )
 
@@ -690,7 +621,7 @@ with tab_monthly:
         barmode="stack", height=380,
         yaxis_title="kWh", xaxis_title="",
         title_text=f"การใช้ไฟฟ้ารายวัน — {sel_label} | {m_dept_sel}",
-        title_font_size=15,
+        title_font_size=18,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         margin=dict(t=50, b=20, l=20, r=20),
         plot_bgcolor="white", paper_bgcolor="white",
@@ -724,27 +655,27 @@ with tab_monthly:
         marker_color="#e65100", opacity=0.85,
         text=mom_df["on_peak"].apply(lambda v: f"{v:,.0f}"),
         textposition="inside", insidetextanchor="middle",
-        textfont=dict(color="white", size=12),
+        textfont=dict(color="white", size=16),
     ))
     fig_mom.add_trace(go.Bar(
         name="Off Peak", x=mom_df["label"], y=mom_df["off_peak"],
         marker_color="#1565c0", opacity=0.85,
         text=mom_df["off_peak"].apply(lambda v: f"{v:,.0f}"),
         textposition="inside", insidetextanchor="middle",
-        textfont=dict(color="white", size=12),
+        textfont=dict(color="white", size=16),
     ))
     for _, row in mom_df.iterrows():
         fig_mom.add_annotation(
             x=row["label"], y=row["total"],
             text=f"<b>{row['total']:,.0f}</b>",
             showarrow=False, yshift=10,
-            font=dict(size=11, color="#1a237e"),
+            font=dict(size=16, color="#1a237e"),
         )
     fig_mom.update_layout(
         barmode="stack", height=380,
         yaxis_title="kWh",
         title_text=f"เปรียบเทียบการใช้ไฟฟ้ารายเดือน — {m_dept_sel}",
-        title_font_size=15,
+        title_font_size=18,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         margin=dict(t=50, b=30, l=20, r=20),
         plot_bgcolor="white", paper_bgcolor="white",
@@ -764,7 +695,7 @@ with tab_monthly:
 
         st.markdown(f"""
     <div style="background:#f8f9ff;border-left:4px solid #1565c0;border-radius:8px;
-                padding:14px 22px;margin-top:4px;font-size:14px;line-height:2.0;color:#333;">
+                padding:14px 22px;margin-top:4px;font-size:16px;line-height:2.0;color:#333;">
       📋 <b>สรุปเดือน {sel_label}</b><br>
       ใช้ไฟฟ้ารวม <b>{total:,.0f} kWh</b> &nbsp;|&nbsp;
       <span style="color:#e65100;font-weight:600;">● On Peak</span> <b>{on_kwh:,.0f} kWh</b>
