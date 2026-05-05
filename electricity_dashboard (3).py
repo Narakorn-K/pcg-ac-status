@@ -621,7 +621,7 @@ with tab_monthly:
         barmode="stack", height=380,
         yaxis_title="kWh", xaxis_title="",
         title_text=f"การใช้ไฟฟ้ารายวัน — {sel_label} | {m_dept_sel}",
-        title_font_size=15,
+        title_font_size=18,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         margin=dict(t=50, b=20, l=20, r=20),
         plot_bgcolor="white", paper_bgcolor="white",
@@ -655,27 +655,27 @@ with tab_monthly:
         marker_color="#e65100", opacity=0.85,
         text=mom_df["on_peak"].apply(lambda v: f"{v:,.0f}"),
         textposition="inside", insidetextanchor="middle",
-        textfont=dict(color="white", size=12),
+        textfont=dict(color="white", size=16),
     ))
     fig_mom.add_trace(go.Bar(
         name="Off Peak", x=mom_df["label"], y=mom_df["off_peak"],
         marker_color="#1565c0", opacity=0.85,
         text=mom_df["off_peak"].apply(lambda v: f"{v:,.0f}"),
         textposition="inside", insidetextanchor="middle",
-        textfont=dict(color="white", size=12),
+        textfont=dict(color="white", size=16),
     ))
     for _, row in mom_df.iterrows():
         fig_mom.add_annotation(
             x=row["label"], y=row["total"],
             text=f"<b>{row['total']:,.0f}</b>",
             showarrow=False, yshift=10,
-            font=dict(size=11, color="#1a237e"),
+            font=dict(size=16, color="#1a237e"),
         )
     fig_mom.update_layout(
         barmode="stack", height=380,
         yaxis_title="kWh",
         title_text=f"เปรียบเทียบการใช้ไฟฟ้ารายเดือน — {m_dept_sel}",
-        title_font_size=15,
+        title_font_size=18,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         margin=dict(t=50, b=30, l=20, r=20),
         plot_bgcolor="white", paper_bgcolor="white",
