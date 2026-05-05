@@ -35,7 +35,7 @@ st.markdown("""
         color:#1a237e; margin-bottom:4px;
     }
     .week-subtitle, .month-subtitle {
-        font-size:15px; text-align:center; color:#546e7a;
+        font-size:16px; text-align:center; color:#546e7a;
         margin-bottom:20px; font-weight:500;
     }
     .kpi-card {
@@ -43,17 +43,17 @@ st.markdown("""
         box-shadow:0 2px 10px rgba(0,0,0,0.08); text-align:center;
         border-top: 4px solid #1565c0;
     }
-    .kpi-label {font-size:12px; color:#666; font-weight:600; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;}
+    .kpi-label {font-size:16px; color:#666; font-weight:600; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;}
     .kpi-value {font-size:26px; font-weight:800; color:#1a237e;}
-    .kpi-unit  {font-size:14px; font-weight:400;}
-    .kpi-sub   {font-size:12px; color:#999; margin-top:4px;}
+    .kpi-unit  {font-size:18px; font-weight:400;}
+    .kpi-sub   {font-size:16px; color:#999; margin-top:4px;}
     .kpi-on    {color:#e65100 !important;}
     .kpi-off   {color:#2e7d32 !important;}
     .kpi-cost  {color:#6a1b9a !important;}
     .up   {color:#e53935; font-weight:700;}
     .down {color:#43a047; font-weight:700;}
     .section-header {
-        font-size:16px; font-weight:700; color:#1a237e;
+        font-size:18px; font-weight:700; color:#1a237e;
         border-left:4px solid #1565c0; padding-left:10px;
         margin:28px 0 14px;
     }
@@ -380,7 +380,7 @@ with tab_weekly:
 
     st.markdown(f"""
 <div style="background:#f8f9ff;border-left:4px solid #1565c0;border-radius:8px;
-            padding:14px 22px;margin-top:4px;font-size:14px;line-height:2.0;color:#333;">
+            padding:14px 22px;margin-top:4px;font-size:16px;line-height:2.0;color:#333;">
   📋 <b>สรุปการใช้ไฟฟ้า &mdash; {summary_dept} &nbsp;|&nbsp; {sel_label}</b><br>
   สัปดาห์นี้ใช้ไฟฟ้ารวมทั้งสิ้น <b>{cur_total_w:,.0f} kWh</b><br>
   &nbsp;&nbsp;&nbsp;
@@ -456,7 +456,7 @@ with tab_weekly:
             yref=f"y{i}", xref=f"x{i}",
             text=f"<b>{arrow_txt}</b>",
             showarrow=False,
-            font=dict(color=clr, size=11),
+            font=dict(color=clr, size=16),
             xanchor="left",
         )
 
@@ -695,7 +695,7 @@ with tab_monthly:
 
         st.markdown(f"""
     <div style="background:#f8f9ff;border-left:4px solid #1565c0;border-radius:8px;
-                padding:14px 22px;margin-top:4px;font-size:14px;line-height:2.0;color:#333;">
+                padding:14px 22px;margin-top:4px;font-size:16px;line-height:2.0;color:#333;">
       📋 <b>สรุปเดือน {sel_label}</b><br>
       ใช้ไฟฟ้ารวม <b>{total:,.0f} kWh</b> &nbsp;|&nbsp;
       <span style="color:#e65100;font-weight:600;">● On Peak</span> <b>{on_kwh:,.0f} kWh</b>
