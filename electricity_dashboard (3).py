@@ -9,7 +9,7 @@ st.set_page_config(page_title="Electricity Usage Overview", layout="wide")
 
 # ─── Google Sheet Config ──────────────────────────────────────────────────────
 SHEET_ID   = "1Ym2yfzkLTyLTtJtLZSSgWoeew_IPWUaI_u6d45jKUnw"
-SHEET_NAME = "Clean Data"
+SHEET_NAME = "Daily"
 from urllib.parse import quote
 EXPORT_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=xlsx&sheet={quote(SHEET_NAME)}"
 
