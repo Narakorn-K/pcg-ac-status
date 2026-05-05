@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from urllib.parse import quote
 
 # ─── Page Config ──────────────────────────────────────────────────────────────
-st.set_page_config(page_title="Electricity Dashboard", layout="wide", page_icon="⚡")
+st.set_page_config(page_title="Electricity Dashboard", layout="wide", page_icon="💡")
 
 # ─── Google Sheet Config ──────────────────────────────────────────────────────
 SHEET_ID   = "1Ym2yfzkLTyLTtJtLZSSgWoeew_IPWUaI_u6d45jKUnw"
