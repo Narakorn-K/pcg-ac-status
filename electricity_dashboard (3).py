@@ -719,32 +719,43 @@ with tab_monthly:
     # Sort by current total descending
     table_rows.sort(key=lambda r: r["cur_tot"], reverse=True)
 
-    # ── Build HTML table ──────────────────────────────────────────────────────
+    # ── Build HTML table — 100% inline styles (Streamlit strips <style> tags) ──
     def chg_cell(v):
         if v == 0:
             return '<span style="color:#888;">—</span>'
-        color  = "#e53935" if v > 0 else "#43a047"
-        arrow  = "▲" if v > 0 else "▼"
-        return f'<span style="color:{color};font-weight:700;">{arrow} {abs(v):.1f}%</span>'
+        color = "#e53935" if v > 0 else "#43a047"
+        arrow = "▲" if v > 0 else "▼"
+        return f'<span style="color:{color};font-weight:700;font-size:15px;">{arrow} {abs(v):.1f}%</span>'
 
     def num(v):
         return f"{v:,.0f}" if v else "—"
+
+    # Shared inline style strings
+    TD  = 'style="padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;font-size:15px;"'
+    TDR = 'style="padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;font-size:15px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;"'
+    TDC = 'style="padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;font-size:15px;text-align:center;"'
+    SEP = 'style="width:6px;background:#e8eaf6;padding:0;border-bottom:1px solid #f0f0f0;"'
+    # Total row
+    TTD  = 'style="padding:10px 14px;border-top:2px solid #1565c0;background:#e8eaf6;font-weight:700;font-size:15px;"'
+    TTDR = 'style="padding:10px 14px;border-top:2px solid #1565c0;background:#e8eaf6;font-weight:700;font-size:15px;text-align:right;font-variant-numeric:tabular-nums;"'
+    TTDC = 'style="padding:10px 14px;border-top:2px solid #1565c0;background:#e8eaf6;font-weight:700;font-size:15px;text-align:center;"'
+    TSEP = 'style="width:6px;background:#d0d5e8;padding:0;border-top:2px solid #1565c0;"'
 
     rows_html = ""
     for r in table_rows:
         rows_html += f"""
         <tr>
-          <td style="font-weight:600;white-space:nowrap">{r['dept']}</td>
-          <td class="num">{num(r['cur_tot'])}</td>
-          <td style="text-align:center">{chg_cell(r['chg'])}</td>
-          <td class="num" style="color:#e65100">{num(r['cur_on'])}</td>
-          <td class="num" style="color:#1565c0">{num(r['cur_off'])}</td>
-          <td style="text-align:center">{r['cur_ratio']}</td>
-          <td class="sep"></td>
-          <td class="num muted">{num(r['prv_tot'])}</td>
-          <td class="num muted" style="color:#e65100">{num(r['prv_on'])}</td>
-          <td class="num muted" style="color:#1565c0">{num(r['prv_off'])}</td>
-          <td style="text-align:center;color:#aaa">{r['prv_ratio']}</td>
+          <td {TD} style="padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;font-size:15px;font-weight:600;white-space:nowrap;">{r['dept']}</td>
+          <td {TDR}>{num(r['cur_tot'])}</td>
+          <td {TDC}>{chg_cell(r['chg'])}</td>
+          <td style="padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;font-size:15px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;color:#e65100;">{num(r['cur_on'])}</td>
+          <td style="padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;font-size:15px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;color:#1565c0;">{num(r['cur_off'])}</td>
+          <td {TDC}>{r['cur_ratio']}</td>
+          <td {SEP}></td>
+          <td style="padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;font-size:15px;text-align:right;color:#888;font-variant-numeric:tabular-nums;">{num(r['prv_tot'])}</td>
+          <td style="padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;font-size:15px;text-align:right;color:#e09070;font-variant-numeric:tabular-nums;">{num(r['prv_on'])}</td>
+          <td style="padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;font-size:15px;text-align:right;color:#7090c0;font-variant-numeric:tabular-nums;">{num(r['prv_off'])}</td>
+          <td style="padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;font-size:15px;text-align:center;color:#aaa;">{r['prv_ratio']}</td>
         </tr>"""
 
     # Totals row
@@ -754,77 +765,58 @@ with tab_monthly:
     gt_prv_on  = sum(r["prv_on"]  for r in table_rows)
     gt_prv_off = sum(r["prv_off"] for r in table_rows)
     gt_prv_tot = gt_prv_on + gt_prv_off
-    gt_chg     = (gt_cur_tot - gt_prv_tot) / gt_prv_tot * 100 if gt_prv_tot else 0
+    gt_chg         = (gt_cur_tot - gt_prv_tot) / gt_prv_tot * 100 if gt_prv_tot else 0
     gt_cur_on_pct  = gt_cur_on  / gt_cur_tot * 100 if gt_cur_tot else 0
     gt_cur_off_pct = gt_cur_off / gt_cur_tot * 100 if gt_cur_tot else 0
     gt_prv_on_pct  = gt_prv_on  / gt_prv_tot * 100 if gt_prv_tot else 0
     gt_prv_off_pct = gt_prv_off / gt_prv_tot * 100 if gt_prv_tot else 0
 
     rows_html += f"""
-        <tr class="total-row">
-          <td style="font-weight:800">🏭 รวมทั้งหมด</td>
-          <td class="num">{num(gt_cur_tot)}</td>
-          <td style="text-align:center">{chg_cell(gt_chg)}</td>
-          <td class="num" style="color:#e65100">{num(gt_cur_on)}</td>
-          <td class="num" style="color:#1565c0">{num(gt_cur_off)}</td>
-          <td style="text-align:center">{gt_cur_on_pct:.0f} : {gt_cur_off_pct:.0f}</td>
-          <td class="sep"></td>
-          <td class="num muted">{num(gt_prv_tot)}</td>
-          <td class="num muted" style="color:#e65100">{num(gt_prv_on)}</td>
-          <td class="num muted" style="color:#1565c0">{num(gt_prv_off)}</td>
-          <td style="text-align:center;color:#aaa">{gt_prv_on_pct:.0f} : {gt_prv_off_pct:.0f}</td>
+        <tr>
+          <td {TTD}>🏭 รวมทั้งหมด</td>
+          <td {TTDR}>{num(gt_cur_tot)}</td>
+          <td {TTDC}>{chg_cell(gt_chg)}</td>
+          <td style="padding:10px 14px;border-top:2px solid #1565c0;background:#e8eaf6;font-weight:700;font-size:15px;text-align:right;color:#e65100;font-variant-numeric:tabular-nums;">{num(gt_cur_on)}</td>
+          <td style="padding:10px 14px;border-top:2px solid #1565c0;background:#e8eaf6;font-weight:700;font-size:15px;text-align:right;color:#1565c0;font-variant-numeric:tabular-nums;">{num(gt_cur_off)}</td>
+          <td {TTDC}>{gt_cur_on_pct:.0f} : {gt_cur_off_pct:.0f}</td>
+          <td {TSEP}></td>
+          <td style="padding:10px 14px;border-top:2px solid #1565c0;background:#e8eaf6;font-weight:700;font-size:15px;text-align:right;color:#666;font-variant-numeric:tabular-nums;">{num(gt_prv_tot)}</td>
+          <td style="padding:10px 14px;border-top:2px solid #1565c0;background:#e8eaf6;font-weight:700;font-size:15px;text-align:right;color:#b07050;font-variant-numeric:tabular-nums;">{num(gt_prv_on)}</td>
+          <td style="padding:10px 14px;border-top:2px solid #1565c0;background:#e8eaf6;font-weight:700;font-size:15px;text-align:right;color:#5070a0;font-variant-numeric:tabular-nums;">{num(gt_prv_off)}</td>
+          <td style="padding:10px 14px;border-top:2px solid #1565c0;background:#e8eaf6;font-weight:700;font-size:15px;text-align:center;color:#888;">{gt_prv_on_pct:.0f} : {gt_prv_off_pct:.0f}</td>
         </tr>"""
 
     prev_header = prev_label if prev_ym else "เดือนก่อน"
 
+    # Header inline styles
+    TH_BASE = 'style="background:#1a237e;color:#fff;padding:11px 14px;font-size:14px;font-weight:700;white-space:nowrap;"'
+    TH_CUR  = 'style="background:#1565c0;color:#fff;padding:11px 14px;font-size:14px;font-weight:700;white-space:nowrap;"'
+    TH_PRV  = 'style="background:#546e7a;color:#fff;padding:11px 14px;font-size:14px;font-weight:700;white-space:nowrap;"'
+
     table_html = f"""
-<style>
-  .sum-table {{
-    width:100%; border-collapse:collapse; font-size:15px;
-    border-radius:10px; overflow:hidden;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-  }}
-  .sum-table th {{
-    background:#1a237e; color:#fff; padding:11px 14px;
-    font-size:13px; font-weight:700; letter-spacing:0.3px;
-    white-space:nowrap;
-  }}
-  .sum-table th.group-cur {{ background:#1565c0; }}
-  .sum-table th.group-prv {{ background:#546e7a; }}
-  .sum-table td {{ padding:10px 14px; border-bottom:1px solid #f0f0f0; vertical-align:middle; }}
-  .sum-table tr:hover td {{ background:#f5f8ff; }}
-  .sum-table .num {{ text-align:right; font-variant-numeric:tabular-nums; font-weight:600; }}
-  .sum-table .muted {{ color:#888 !important; font-weight:400 !important; }}
-  .sum-table .sep {{ width:6px; background:#e8eaf6; padding:0; }}
-  .sum-table .total-row td {{
-    background:#e8eaf6; font-weight:700;
-    border-top:2px solid #1565c0;
-  }}
-  .sum-table .total-row:hover td {{ background:#dde2f0; }}
-</style>
-<div style="overflow-x:auto; margin-top:8px;">
-<table class="sum-table">
+<div style="overflow-x:auto;margin-top:8px;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,0.10);">
+<table style="width:100%;border-collapse:collapse;font-size:15px;">
   <thead>
     <tr>
-      <th rowspan="2" style="text-align:left; background:#1a237e;">แผนก</th>
-      <th colspan="5" class="group-cur" style="text-align:center; border-bottom:1px solid rgba(255,255,255,0.3);">
+      <th rowspan="2" {TH_BASE} style="background:#1a237e;color:#fff;padding:11px 14px;font-size:14px;font-weight:700;white-space:nowrap;text-align:left;vertical-align:middle;">แผนก</th>
+      <th colspan="5" {TH_CUR} style="background:#1565c0;color:#fff;padding:11px 14px;font-size:14px;font-weight:700;text-align:center;border-bottom:1px solid rgba(255,255,255,0.25);">
         📅 เดือนนี้ — {sel_label}
       </th>
-      <th rowspan="2" class="sep" style="width:6px;padding:0;"></th>
-      <th colspan="4" class="group-prv" style="text-align:center; border-bottom:1px solid rgba(255,255,255,0.3);">
+      <th rowspan="2" style="width:8px;background:#c5cae9;padding:0;vertical-align:middle;"></th>
+      <th colspan="4" {TH_PRV} style="background:#546e7a;color:#fff;padding:11px 14px;font-size:14px;font-weight:700;text-align:center;border-bottom:1px solid rgba(255,255,255,0.25);">
         🕓 เดือนก่อน — {prev_header}
       </th>
     </tr>
     <tr>
-      <th class="group-cur" style="text-align:right;">Total (kWh)</th>
-      <th class="group-cur" style="text-align:center;">เทียบเดือนก่อน</th>
-      <th class="group-cur" style="text-align:right; color:#ffcc80;">On Peak (kWh)</th>
-      <th class="group-cur" style="text-align:right; color:#90caf9;">Off Peak (kWh)</th>
-      <th class="group-cur" style="text-align:center;">On:Off Ratio</th>
-      <th class="group-prv" style="text-align:right;">Total (kWh)</th>
-      <th class="group-prv" style="text-align:right; color:#ffcc80;">On Peak (kWh)</th>
-      <th class="group-prv" style="text-align:right; color:#90caf9;">Off Peak (kWh)</th>
-      <th class="group-prv" style="text-align:center;">On:Off Ratio</th>
+      <th {TH_CUR} style="background:#1565c0;color:#fff;padding:11px 14px;font-size:13px;font-weight:700;text-align:right;">Total (kWh)</th>
+      <th {TH_CUR} style="background:#1565c0;color:#fff;padding:11px 14px;font-size:13px;font-weight:700;text-align:center;">เทียบเดือนก่อน</th>
+      <th {TH_CUR} style="background:#1565c0;color:#ffcc80;padding:11px 14px;font-size:13px;font-weight:700;text-align:right;">On Peak (kWh)</th>
+      <th {TH_CUR} style="background:#1565c0;color:#90caf9;padding:11px 14px;font-size:13px;font-weight:700;text-align:right;">Off Peak (kWh)</th>
+      <th {TH_CUR} style="background:#1565c0;color:#fff;padding:11px 14px;font-size:13px;font-weight:700;text-align:center;">On:Off %</th>
+      <th {TH_PRV} style="background:#546e7a;color:#fff;padding:11px 14px;font-size:13px;font-weight:700;text-align:right;">Total (kWh)</th>
+      <th {TH_PRV} style="background:#546e7a;color:#ffcc80;padding:11px 14px;font-size:13px;font-weight:700;text-align:right;">On Peak (kWh)</th>
+      <th {TH_PRV} style="background:#546e7a;color:#90caf9;padding:11px 14px;font-size:13px;font-weight:700;text-align:right;">Off Peak (kWh)</th>
+      <th {TH_PRV} style="background:#546e7a;color:#fff;padding:11px 14px;font-size:13px;font-weight:700;text-align:center;">On:Off %</th>
     </tr>
   </thead>
   <tbody>
