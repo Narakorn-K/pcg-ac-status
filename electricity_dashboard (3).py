@@ -426,28 +426,28 @@ with tab_weekly:
         show_leg  = (i == 1)
 
         fig_d.add_trace(go.Bar(
-            name="On Peak (สัปดาห์ก่อน)", x=[prv_on], y=["สัปดาห์ก่อน"],
+            name="On Peak (ก่อน)", x=[prv_on], y=["ก่อน"],
             orientation="h", marker_color="#ffcc80",
             legendgroup="p_on", showlegend=show_leg,
-            hovertemplate=f"{dep} On Peak (สัปดาห์ก่อน): %{{x:,.0f}} kWh<extra></extra>",
+            hovertemplate=f"{dep} On Peak (ก่อน): %{{x:,.0f}} kWh<extra></extra>",
         ), row=i, col=1)
         fig_d.add_trace(go.Bar(
-            name="Off Peak (สัปดาห์ก่อน)", x=[prv_off], y=["สัปดาห์ก่อน"],
+            name="Off Peak (ก่อน)", x=[prv_off], y=["ก่อน"],
             orientation="h", marker_color="#90caf9",
             legendgroup="p_off", showlegend=show_leg,
-            hovertemplate=f"{dep} Off Peak (สัปดาห์ก่อน): %{{x:,.0f}} kWh<extra></extra>",
+            hovertemplate=f"{dep} Off Peak (ก่อน): %{{x:,.0f}} kWh<extra></extra>",
         ), row=i, col=1)
         fig_d.add_trace(go.Bar(
-            name="On Peak (สัปดาห์นี้)", x=[cur_on], y=["สัปดาห์นี้"],
+            name="On Peak (นี้)", x=[cur_on], y=["นี้"],
             orientation="h", marker_color="#e65100",
             legendgroup="c_on", showlegend=show_leg,
-            hovertemplate=f"{dep} On Peak (สัปดาห์นี้): %{{x:,.0f}} kWh<extra></extra>",
+            hovertemplate=f"{dep} On Peak (นี้): %{{x:,.0f}} kWh<extra></extra>",
         ), row=i, col=1)
         fig_d.add_trace(go.Bar(
-            name="Off Peak (สัปดาห์นี้)", x=[cur_off], y=["สัปดาห์นี้"],
+            name="Off Peak (นี้)", x=[cur_off], y=["นี้"],
             orientation="h", marker_color="#1565c0",
             legendgroup="c_off", showlegend=show_leg,
-            hovertemplate=f"{dep} Off Peak (สัปดาห์นี้): %{{x:,.0f}} kWh<extra></extra>",
+            hovertemplate=f"{dep} Off Peak (นี้): %{{x:,.0f}} kWh<extra></extra>",
         ), row=i, col=1)
 
         max_val = max(cur_on + cur_off, prv_on + prv_off, 1)
@@ -494,16 +494,20 @@ with tab_monthly:
         y, m = ym.split("-")
         return f"{MONTH_TH[int(m)]} {y}"
 
-    def month_agg(ym):
+    def month_agg(ym, dept_filter=None):
         sub = df[df["ym"] == ym]
+        if dept_filter and dept_filter != "🏭 Factory (ทั้งหมด)":
+            sub = sub[sub["department"] == dept_filter]
         return sub[["on_peak", "off_peak"]].sum()
 
     def month_dept_agg(ym):
         sub = df[df["ym"] == ym]
         return sub.groupby("department")[["on_peak", "off_peak"]].sum().reset_index()
 
-    def daily_agg(ym):
+    def daily_agg(ym, dept_filter=None):
         sub = df[df["ym"] == ym]
+        if dept_filter and dept_filter != "🏭 Factory (ทั้งหมด)":
+            sub = sub[sub["department"] == dept_filter]
         return sub.groupby("date")[["on_peak", "off_peak"]].sum().reset_index().sort_values("date")
 
     # ── Title ─────────────────────────────────────────────────────────────────
@@ -535,8 +539,15 @@ with tab_monthly:
     st.markdown(f'<div class="month-subtitle">📆 เดือน {sel_label}</div>', unsafe_allow_html=True)
     st.markdown("---")
 
+    # ── Department Filter ─────────────────────────────────────────────────────
+    m_departments    = sorted(df["department"].unique().tolist())
+    m_filter_options = ["🏭 Factory (ทั้งหมด)"] + m_departments
+    col_mf1, col_mf2, col_mf3 = st.columns([1, 2, 1])
+    with col_mf2:
+        m_dept_sel = st.selectbox("🔍 เลือกแผนก", m_filter_options, index=0, key="monthly_dept_sel")
+
     # ── KPI Cards ─────────────────────────────────────────────────────────────
-    agg     = month_agg(selected_ym)
+    agg     = month_agg(selected_ym, m_dept_sel)
     on_kwh  = agg["on_peak"]
     off_kwh = agg["off_peak"]
     total   = on_kwh + off_kwh
@@ -545,7 +556,7 @@ with tab_monthly:
     off_pct = off_kwh / total * 100 if total else 0
 
     if prev_ym:
-        agg_p    = month_agg(prev_ym)
+        agg_p    = month_agg(prev_ym, m_dept_sel)
         prev_tot = agg_p["on_peak"] + agg_p["off_peak"]
         chg_tot  = (total   - prev_tot)          / prev_tot          * 100 if prev_tot          else 0
         chg_on   = (on_kwh  - agg_p["on_peak"])  / agg_p["on_peak"]  * 100 if agg_p["on_peak"]  else 0
@@ -588,7 +599,7 @@ with tab_monthly:
     # ── Section 1: Daily Trend ────────────────────────────────────────────────
     st.markdown('<div class="section-header">📈 Daily Usage Trend</div>', unsafe_allow_html=True)
 
-    daily = daily_agg(selected_ym)
+    daily = daily_agg(selected_ym, m_dept_sel)
     daily["total"] = daily["on_peak"] + daily["off_peak"]
 
     fig_trend = go.Figure()
@@ -609,7 +620,7 @@ with tab_monthly:
     fig_trend.update_layout(
         barmode="stack", height=380,
         yaxis_title="kWh", xaxis_title="",
-        title_text=f"การใช้ไฟฟ้ารายวัน — {sel_label}",
+        title_text=f"การใช้ไฟฟ้ารายวัน — {sel_label} | {m_dept_sel}",
         title_font_size=15,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         margin=dict(t=50, b=20, l=20, r=20),
@@ -628,7 +639,7 @@ with tab_monthly:
 
     mom_rows = []
     for ym in all_ym:
-        a = month_agg(ym)
+        a = month_agg(ym, m_dept_sel)
         mom_rows.append({
             "ym":       ym,
             "label":    month_label(ym),
@@ -638,20 +649,17 @@ with tab_monthly:
         })
     mom_df = pd.DataFrame(mom_rows)
 
-    colors_on  = ["#ffcc80" if ym != selected_ym else "#e65100" for ym in mom_df["ym"]]
-    colors_off = ["#90caf9" if ym != selected_ym else "#1565c0" for ym in mom_df["ym"]]
-
     fig_mom = go.Figure()
     fig_mom.add_trace(go.Bar(
         name="On Peak", x=mom_df["label"], y=mom_df["on_peak"],
-        marker_color=colors_on,
+        marker_color="#e65100", opacity=0.85,
         text=mom_df["on_peak"].apply(lambda v: f"{v:,.0f}"),
         textposition="inside", insidetextanchor="middle",
         textfont=dict(color="white", size=12),
     ))
     fig_mom.add_trace(go.Bar(
         name="Off Peak", x=mom_df["label"], y=mom_df["off_peak"],
-        marker_color=colors_off,
+        marker_color="#1565c0", opacity=0.85,
         text=mom_df["off_peak"].apply(lambda v: f"{v:,.0f}"),
         textposition="inside", insidetextanchor="middle",
         textfont=dict(color="white", size=12),
@@ -666,7 +674,7 @@ with tab_monthly:
     fig_mom.update_layout(
         barmode="stack", height=380,
         yaxis_title="kWh",
-        title_text="เปรียบเทียบการใช้ไฟฟ้ารายเดือน (เดือนที่เลือก = สีเข้ม)",
+        title_text=f"เปรียบเทียบการใช้ไฟฟ้ารายเดือน — {m_dept_sel}",
         title_font_size=15,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         margin=dict(t=50, b=30, l=20, r=20),
@@ -677,7 +685,7 @@ with tab_monthly:
 
     # Summary block
     if prev_ym:
-        prev_tot_val = month_agg(prev_ym)["on_peak"] + month_agg(prev_ym)["off_peak"]
+        prev_tot_val = month_agg(prev_ym, m_dept_sel)["on_peak"] + month_agg(prev_ym, m_dept_sel)["off_peak"]
         diff_v   = total - prev_tot_val
         pct_v    = diff_v / prev_tot_val * 100 if prev_tot_val else 0
         direction   = "เพิ่มขึ้น" if diff_v >= 0 else "ลดลง"
