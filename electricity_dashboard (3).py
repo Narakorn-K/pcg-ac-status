@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import quote
 
 # ─── Page Config ──────────────────────────────────────────────────────────────
@@ -27,7 +27,7 @@ MONTH_TH = {
     9: "ก.ย.", 10: "ต.ค.", 11: "พ.ย.", 12: "ธ.ค.",
 }
 
-# ─── CSS ──────────────────────────────────────────────────────────────────────
+# ─── Shared CSS ───────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
     .main-title {
@@ -43,29 +43,26 @@ st.markdown("""
         box-shadow:0 2px 10px rgba(0,0,0,0.08); text-align:center;
         border-top: 4px solid #1565c0;
     }
-    .kpi-label {font-size:15px; color:#666; font-weight:600; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;}
-    .kpi-value {font-size:32px; font-weight:800; color:#1a237e;}
-    .kpi-unit  {font-size:17px; font-weight:400;}
-    .kpi-sub   {font-size:15px; color:#999; margin-top:4px;}
+    .kpi-label {font-size:12px; color:#666; font-weight:600; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;}
+    .kpi-value {font-size:26px; font-weight:800; color:#1a237e;}
+    .kpi-unit  {font-size:14px; font-weight:400;}
+    .kpi-sub   {font-size:12px; color:#999; margin-top:4px;}
     .kpi-on    {color:#e65100 !important;}
     .kpi-off   {color:#2e7d32 !important;}
     .kpi-cost  {color:#6a1b9a !important;}
-    .up   {color:#e53935; font-weight:700; font-size:15px;}
-    .down {color:#43a047; font-weight:700; font-size:15px;}
+    .up   {color:#e53935; font-weight:700;}
+    .down {color:#43a047; font-weight:700;}
     .section-header {
-        font-size:19px; font-weight:700; color:#1a237e;
+        font-size:16px; font-weight:700; color:#1a237e;
         border-left:4px solid #1565c0; padding-left:10px;
         margin:28px 0 14px;
     }
-    div[data-testid="stSelectbox"] label {font-weight:600; font-size:16px;}
-    div[data-testid="stSelectbox"] div   {font-size:16px;}
-    .summary-box {font-size:16px !important; line-height:2.2;}
-    p, li, .stCaption {font-size:15px !important;}
+    div[data-testid="stSelectbox"] label {font-weight:600;}
 </style>
 """, unsafe_allow_html=True)
 
-# ─── Helpers ──────────────────────────────────────────────────────────────────
-def parse_date_col(raw_val, fallback_year=2026):
+# ─── Shared Helpers ───────────────────────────────────────────────────────────
+def parse_date_col(raw_val: str, fallback_year: int = 2026):
     match = re.match(r"(\d{2}/\d{2})", str(raw_val))
     if not match:
         return None, None
@@ -83,12 +80,11 @@ def parse_date_col(raw_val, fallback_year=2026):
 
 
 def badge(v):
-    cls   = "up"  if v >= 0 else "down"
-    arrow = "▲"   if v >= 0 else "▼"
+    cls   = "up" if v >= 0 else "down"
+    arrow = "▲" if v >= 0 else "▼"
     return f'<span class="{cls}">{arrow} {abs(v):.1f}%</span>'
 
 
-# ─── Data Loading ─────────────────────────────────────────────────────────────
 @st.cache_data(ttl=300)
 def load_data():
     try:
@@ -97,7 +93,6 @@ def load_data():
         st.error(f"❌ ไม่สามารถดึงข้อมูลจาก Google Sheet ได้: {e}")
         st.stop()
 
-    # Find header row
     header_row = 0
     for r in range(min(6, raw.shape[0])):
         if raw.iloc[r, :].astype(str).str.contains(r"\d{2}/\d{2}", regex=True).any():
@@ -159,63 +154,6 @@ def load_data():
     return df
 
 
-# ─── Weekly helpers ───────────────────────────────────────────────────────────
-def week_label(year_week, df):
-    sub = df[df["year_week"] == year_week]["date"]
-    if sub.empty:
-        return year_week
-    start, end = sub.min(), sub.max()
-    if start.month == end.month:
-        return f"{start.day} – {end.strftime('%-d %b %Y')}"
-    return f"{start.strftime('%-d %b')} – {end.strftime('%-d %b %Y')}"
-
-
-def get_all_weeks(df):
-    return sorted(df["year_week"].unique().tolist())
-
-
-def get_complete_weeks(df):
-    wk_days = df.groupby("year_week")["date"].nunique()
-    return wk_days[wk_days == 7].index.tolist()
-
-
-def week_agg(df, year_week, dept_filter=None):
-    sub = df[df["year_week"] == year_week]
-    if dept_filter and dept_filter != "🏭 Factory (ทั้งหมด)":
-        sub = sub[sub["department"] == dept_filter]
-    return sub[["on_peak", "off_peak", "total"]].sum()
-
-
-def dept_week_agg(df, year_week):
-    sub = df[df["year_week"] == year_week]
-    return sub.groupby("department")[["on_peak", "off_peak", "total"]].sum().reset_index()
-
-
-# ─── Monthly helpers ──────────────────────────────────────────────────────────
-def month_label(ym):
-    y, m = ym.split("-")
-    return f"{MONTH_TH[int(m)]} {y}"
-
-
-def month_agg(df, ym, dept_filter=None):
-    sub = df[df["ym"] == ym]
-    if dept_filter and dept_filter != "🏭 Factory (ทั้งหมด)":
-        sub = sub[sub["department"] == dept_filter]
-    return sub[["on_peak", "off_peak"]].sum()
-
-
-def month_dept_agg(df, ym):
-    sub = df[df["ym"] == ym]
-    return sub.groupby("department")[["on_peak", "off_peak"]].sum().reset_index()
-
-
-def daily_agg(df, ym, dept_filter=None):
-    sub = df[df["ym"] == ym]
-    if dept_filter and dept_filter != "🏭 Factory (ทั้งหมด)":
-        sub = sub[sub["department"] == dept_filter]
-    return sub.groupby("date")[["on_peak", "off_peak"]].sum().reset_index().sort_values("date")
-
-
 # ─── Sidebar ──────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## ⚡ Electricity Dashboard")
@@ -233,12 +171,10 @@ with st.sidebar:
     st.caption(f"• Ft Surcharge : {FT_ADJ} ฿/kWh")
 
 # ─── Load Data ────────────────────────────────────────────────────────────────
-st.markdown('<div class="main-title">⚡ Electricity Usage Dashboard</div>', unsafe_allow_html=True)
-
 with st.spinner("⏳ กำลังดึงข้อมูลจาก Google Sheet..."):
     df = load_data()
 
-# ─── Tabs ─────────────────────────────────────────────────────────────────────
+# ─── Tab Navigation ───────────────────────────────────────────────────────────
 tab_weekly, tab_monthly = st.tabs(["📋 Weekly Overview", "📅 Monthly Dashboard"])
 
 
@@ -246,24 +182,59 @@ tab_weekly, tab_monthly = st.tabs(["📋 Weekly Overview", "📅 Monthly Dashboa
 # TAB 1 — WEEKLY
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_weekly:
-    all_weeks      = get_all_weeks(df)
-    complete_weeks = sorted(get_complete_weeks(df))
+
+    # ── Helpers ───────────────────────────────────────────────────────────────
+    def week_label(year_week: str) -> str:
+        sub = df[df["year_week"] == year_week]["date"]
+        if sub.empty:
+            return year_week
+        start = sub.min()
+        end   = sub.max()
+        if start.month == end.month:
+            return f"{start.day} – {end.strftime('%-d %b %Y')}"
+        else:
+            return f"{start.strftime('%-d %b')} – {end.strftime('%-d %b %Y')}"
+
+    def get_all_weeks():
+        return sorted(df["year_week"].unique().tolist())
+
+    def get_complete_weeks():
+        wk_days = df.groupby("year_week")["date"].nunique()
+        return wk_days[wk_days == 7].index.tolist()
+
+    def week_agg(year_week, dept_filter=None):
+        sub = df[df["year_week"] == year_week]
+        if dept_filter and dept_filter != "🏭 Factory (ทั้งหมด)":
+            sub = sub[sub["department"] == dept_filter]
+        return sub[["on_peak", "off_peak", "total"]].sum()
+
+    def dept_week_agg(year_week):
+        sub = df[df["year_week"] == year_week]
+        return sub.groupby("department")[["on_peak", "off_peak", "total"]].sum().reset_index()
+
+    # ── Title ─────────────────────────────────────────────────────────────────
+    st.markdown('<div class="main-title">⚡ Electricity Usage Overview</div>', unsafe_allow_html=True)
+
+    all_weeks      = get_all_weeks()
+    complete_weeks = sorted(get_complete_weeks())
 
     if not all_weeks:
         st.error("ไม่พบข้อมูล กรุณาตรวจสอบ Google Sheet")
         st.stop()
 
-    # Week selector
+    # ── Week Selector ─────────────────────────────────────────────────────────
     week_display_map = {}
     for yw in all_weeks:
-        label      = week_label(yw, df)
-        suffix     = "" if yw in complete_weeks else " ⚠️ ไม่ครบ 7 วัน"
+        label = week_label(yw)
+        is_complete = yw in complete_weeks
+        suffix = "" if is_complete else " ⚠️ ไม่ครบ 7 วัน"
         week_display_map[yw] = f"{yw}  ·  {label}{suffix}"
 
     display_options = list(week_display_map.values())
     yw_keys         = list(week_display_map.keys())
-    default_yw      = complete_weeks[-1] if complete_weeks else all_weeks[-1]
-    default_idx     = yw_keys.index(default_yw)
+
+    default_yw  = complete_weeks[-1] if complete_weeks else all_weeks[-1]
+    default_idx = yw_keys.index(default_yw)
 
     col_sel1, col_sel2, col_sel3 = st.columns([1, 2, 1])
     with col_sel2:
@@ -272,21 +243,22 @@ with tab_weekly:
             options=display_options,
             index=default_idx,
             help="เลือกสัปดาห์ที่ต้องการดู (⚠️ = ข้อมูลยังไม่ครบ 7 วัน)",
-            key="week_selector",
+            key="weekly_selector",
         )
 
     selected_yw  = yw_keys[display_options.index(selected_display)]
     selected_idx = yw_keys.index(selected_yw)
     prev_yw      = yw_keys[selected_idx - 1] if selected_idx > 0 else None
-    sel_label    = week_label(selected_yw, df)
-    prev_label   = week_label(prev_yw, df) if prev_yw else "N/A"
+
+    sel_label  = week_label(selected_yw)
+    prev_label = week_label(prev_yw) if prev_yw else "N/A"
 
     st.markdown(f'<div class="week-subtitle">📆 สัปดาห์ {selected_yw} &nbsp;|&nbsp; {sel_label}</div>',
                 unsafe_allow_html=True)
     st.markdown("---")
 
-    # KPI Cards
-    agg       = week_agg(df, selected_yw)
+    # ── KPI Cards ─────────────────────────────────────────────────────────────
+    agg       = week_agg(selected_yw)
     on_kwh    = agg["on_peak"]
     off_kwh   = agg["off_peak"]
     total_kwh = on_kwh + off_kwh
@@ -295,7 +267,7 @@ with tab_weekly:
     off_pct   = off_kwh / total_kwh * 100 if total_kwh else 0
 
     if prev_yw:
-        agg_p      = week_agg(df, prev_yw)
+        agg_p      = week_agg(prev_yw)
         prev_total = agg_p["on_peak"] + agg_p["off_peak"]
         chg_total  = (total_kwh - prev_total)        / prev_total        * 100 if prev_total        else 0
         chg_on     = (on_kwh    - agg_p["on_peak"])  / agg_p["on_peak"]  * 100 if agg_p["on_peak"]  else 0
@@ -335,7 +307,7 @@ with tab_weekly:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Section 2: Weekly Comparison
+    # ── Section 2: Weekly Comparison ─────────────────────────────────────────
     st.markdown('<div class="section-header">📊 Weekly Usage Comparison</div>', unsafe_allow_html=True)
 
     departments    = sorted(df["department"].unique().tolist())
@@ -343,10 +315,10 @@ with tab_weekly:
 
     col_f, col_g = st.columns([1, 3])
     with col_f:
-        dept_sel = st.selectbox("🔍 เลือกแผนก", filter_options, index=0, key="week_dept_sel")
+        dept_sel = st.selectbox("🔍 เลือกแผนก", filter_options, index=0, key="weekly_dept_sel")
 
-    agg_cur  = week_agg(df, selected_yw, dept_sel)
-    agg_prev = week_agg(df, prev_yw,     dept_sel) if prev_yw else None
+    agg_cur  = week_agg(selected_yw, dept_sel)
+    agg_prev = week_agg(prev_yw,     dept_sel) if prev_yw else None
 
     label_cur  = f"สัปดาห์นี้\n({sel_label})"
     label_prev = f"สัปดาห์ก่อน\n({prev_label})" if prev_yw else "สัปดาห์ก่อน"
@@ -354,7 +326,8 @@ with tab_weekly:
     on_vals  = [agg_prev["on_peak"]  if agg_prev is not None else 0, agg_cur["on_peak"]]
     off_vals = [agg_prev["off_peak"] if agg_prev is not None else 0, agg_cur["off_peak"]]
     x_labels = [label_prev, label_cur]
-    tot_vals = [on_vals[i] + off_vals[i] for i in range(2)]
+
+    tot_vals     = [on_vals[i] + off_vals[i] for i in range(2)]
     on_pct_bars  = [on_vals[i]  / tot_vals[i] * 100 if tot_vals[i] else 0 for i in range(2)]
     off_pct_bars = [off_vals[i] / tot_vals[i] * 100 if tot_vals[i] else 0 for i in range(2)]
 
@@ -398,9 +371,10 @@ with tab_weekly:
     pct_w        = (diff_w / prev_total_w * 100) if prev_total_w else 0
     cur_on_pct   = agg_cur["on_peak"]  / cur_total_w * 100 if cur_total_w else 0
     cur_off_pct  = agg_cur["off_peak"] / cur_total_w * 100 if cur_total_w else 0
-    direction    = "เพิ่มขึ้น" if diff_w >= 0 else "ลดลง"
-    dir_color    = "#e53935"   if diff_w >= 0 else "#43a047"
-    dir_icon     = "▲"         if diff_w >= 0 else "▼"
+
+    direction   = "เพิ่มขึ้น" if diff_w >= 0 else "ลดลง"
+    dir_color   = "#e53935"   if diff_w >= 0 else "#43a047"
+    dir_icon    = "▲"         if diff_w >= 0 else "▼"
     summary_dept = dept_sel if dept_sel != "🏭 Factory (ทั้งหมด)" else "ทั้งโรงงาน"
     prev_wk_txt  = f"เทียบกับสัปดาห์ก่อน {prev_total_w:,.0f} kWh" if prev_yw else ""
 
@@ -422,11 +396,12 @@ with tab_weekly:
 </div>
 """, unsafe_allow_html=True)
 
-    # Section 3: Department Breakdown
+    # ── Section 3: Department Breakdown ───────────────────────────────────────
     st.markdown('<div class="section-header">🏭 Department Usage Breakdown</div>', unsafe_allow_html=True)
 
-    dept_cur  = dept_week_agg(df, selected_yw).set_index("department")
-    dept_prev = dept_week_agg(df, prev_yw).set_index("department") if prev_yw else None
+    dept_cur  = dept_week_agg(selected_yw).set_index("department")
+    dept_prev = dept_week_agg(prev_yw).set_index("department") if prev_yw else None
+
     dept_cur["total_combined"] = dept_cur["on_peak"] + dept_cur["off_peak"]
     all_depts = dept_cur.sort_values("total_combined", ascending=False).index.tolist()
 
@@ -450,13 +425,40 @@ with tab_weekly:
         clr       = "#e53935" if pct >= 0 else "#43a047"
         show_leg  = (i == 1)
 
-        fig_d.add_trace(go.Bar(name="On Peak (ก่อน)",  x=[prv_on],  y=["ก่อน"], orientation="h", marker_color="#ffcc80", legendgroup="p_on",  showlegend=show_leg, hovertemplate=f"{dep} On Peak (ก่อน): %{{x:,.0f}} kWh<extra></extra>"), row=i, col=1)
-        fig_d.add_trace(go.Bar(name="Off Peak (ก่อน)", x=[prv_off], y=["ก่อน"], orientation="h", marker_color="#90caf9", legendgroup="p_off", showlegend=show_leg, hovertemplate=f"{dep} Off Peak (ก่อน): %{{x:,.0f}} kWh<extra></extra>"), row=i, col=1)
-        fig_d.add_trace(go.Bar(name="On Peak (นี้)",   x=[cur_on],  y=["นี้"],  orientation="h", marker_color="#e65100", legendgroup="c_on",  showlegend=show_leg, hovertemplate=f"{dep} On Peak (นี้): %{{x:,.0f}} kWh<extra></extra>"), row=i, col=1)
-        fig_d.add_trace(go.Bar(name="Off Peak (นี้)",  x=[cur_off], y=["นี้"],  orientation="h", marker_color="#1565c0", legendgroup="c_off", showlegend=show_leg, hovertemplate=f"{dep} Off Peak (นี้): %{{x:,.0f}} kWh<extra></extra>"), row=i, col=1)
+        fig_d.add_trace(go.Bar(
+            name="On Peak (ก่อน)", x=[prv_on], y=["ก่อน"],
+            orientation="h", marker_color="#ffcc80",
+            legendgroup="p_on", showlegend=show_leg,
+            hovertemplate=f"{dep} On Peak (ก่อน): %{{x:,.0f}} kWh<extra></extra>",
+        ), row=i, col=1)
+        fig_d.add_trace(go.Bar(
+            name="Off Peak (ก่อน)", x=[prv_off], y=["ก่อน"],
+            orientation="h", marker_color="#90caf9",
+            legendgroup="p_off", showlegend=show_leg,
+            hovertemplate=f"{dep} Off Peak (ก่อน): %{{x:,.0f}} kWh<extra></extra>",
+        ), row=i, col=1)
+        fig_d.add_trace(go.Bar(
+            name="On Peak (นี้)", x=[cur_on], y=["นี้"],
+            orientation="h", marker_color="#e65100",
+            legendgroup="c_on", showlegend=show_leg,
+            hovertemplate=f"{dep} On Peak (นี้): %{{x:,.0f}} kWh<extra></extra>",
+        ), row=i, col=1)
+        fig_d.add_trace(go.Bar(
+            name="Off Peak (นี้)", x=[cur_off], y=["นี้"],
+            orientation="h", marker_color="#1565c0",
+            legendgroup="c_off", showlegend=show_leg,
+            hovertemplate=f"{dep} Off Peak (นี้): %{{x:,.0f}} kWh<extra></extra>",
+        ), row=i, col=1)
 
         max_val = max(cur_on + cur_off, prv_on + prv_off, 1)
-        fig_d.add_annotation(x=max_val * 1.02, y=0.5, yref=f"y{i}", xref=f"x{i}", text=f"<b>{arrow_txt}</b>", showarrow=False, font=dict(color=clr, size=11), xanchor="left")
+        fig_d.add_annotation(
+            x=max_val * 1.02, y=0.5,
+            yref=f"y{i}", xref=f"x{i}",
+            text=f"<b>{arrow_txt}</b>",
+            showarrow=False,
+            font=dict(color=clr, size=11),
+            xanchor="left",
+        )
 
     fig_d.update_layout(
         barmode="stack",
@@ -467,9 +469,10 @@ with tab_weekly:
     )
     for i in range(1, len(all_depts) + 1):
         fig_d.update_xaxes(gridcolor="#f0f0f0", row=i, col=1)
+
     st.plotly_chart(fig_d, use_container_width=True)
 
-    # Footer
+    # ── Footer ────────────────────────────────────────────────────────────────
     st.markdown("---")
     last_updated = datetime.now().strftime("%d/%m/%Y %H:%M")
     num_days_selected = df[df["year_week"] == selected_yw]["date"].nunique()
@@ -485,11 +488,33 @@ with tab_weekly:
 # TAB 2 — MONTHLY
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_monthly:
+
+    # ── Helpers ───────────────────────────────────────────────────────────────
+    def month_label(ym: str) -> str:
+        y, m = ym.split("-")
+        return f"{MONTH_TH[int(m)]} {y}"
+
+    def month_agg(ym):
+        sub = df[df["ym"] == ym]
+        return sub[["on_peak", "off_peak"]].sum()
+
+    def month_dept_agg(ym):
+        sub = df[df["ym"] == ym]
+        return sub.groupby("department")[["on_peak", "off_peak"]].sum().reset_index()
+
+    def daily_agg(ym):
+        sub = df[df["ym"] == ym]
+        return sub.groupby("date")[["on_peak", "off_peak"]].sum().reset_index().sort_values("date")
+
+    # ── Title ─────────────────────────────────────────────────────────────────
+    st.markdown('<div class="main-title">📅 Monthly Electricity Dashboard</div>', unsafe_allow_html=True)
+
     all_ym = sorted(df["ym"].unique().tolist())
     if not all_ym:
         st.error("ไม่พบข้อมูล")
         st.stop()
 
+    # ── Month Selector ────────────────────────────────────────────────────────
     ym_display = {ym: month_label(ym) for ym in all_ym}
 
     col_s1, col_s2, col_s3 = st.columns([1, 2, 1])
@@ -499,27 +524,19 @@ with tab_monthly:
             options=all_ym,
             format_func=lambda x: ym_display[x],
             index=len(all_ym) - 1,
-            key="month_selector",
+            key="monthly_selector",
         )
 
-    sel_idx    = all_ym.index(selected_ym)
-    prev_ym    = all_ym[sel_idx - 1] if sel_idx > 0 else None
-    sel_label  = month_label(selected_ym)
-    prev_label = month_label(prev_ym) if prev_ym else "N/A"
+    sel_idx   = all_ym.index(selected_ym)
+    prev_ym   = all_ym[sel_idx - 1] if sel_idx > 0 else None
+    sel_label = month_label(selected_ym)
+    prev_label_m = month_label(prev_ym) if prev_ym else "N/A"
 
     st.markdown(f'<div class="month-subtitle">📆 เดือน {sel_label}</div>', unsafe_allow_html=True)
     st.markdown("---")
 
-    # ── Department Filter (same style as Weekly) ──────────────────────────────
-    m_departments    = sorted(df["department"].unique().tolist())
-    m_filter_options = ["🏭 Factory (ทั้งหมด)"] + m_departments
-
-    col_mf, col_mg = st.columns([1, 3])
-    with col_mf:
-        m_dept_sel = st.selectbox("🔍 เลือกแผนก", m_filter_options, index=0, key="month_dept_sel")
-
-    # KPI Cards (filtered)
-    agg     = month_agg(df, selected_ym, m_dept_sel)
+    # ── KPI Cards ─────────────────────────────────────────────────────────────
+    agg     = month_agg(selected_ym)
     on_kwh  = agg["on_peak"]
     off_kwh = agg["off_peak"]
     total   = on_kwh + off_kwh
@@ -528,7 +545,7 @@ with tab_monthly:
     off_pct = off_kwh / total * 100 if total else 0
 
     if prev_ym:
-        agg_p    = month_agg(df, prev_ym, m_dept_sel)
+        agg_p    = month_agg(prev_ym)
         prev_tot = agg_p["on_peak"] + agg_p["off_peak"]
         chg_tot  = (total   - prev_tot)          / prev_tot          * 100 if prev_tot          else 0
         chg_on   = (on_kwh  - agg_p["on_peak"])  / agg_p["on_peak"]  * 100 if agg_p["on_peak"]  else 0
@@ -568,48 +585,52 @@ with tab_monthly:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Section 1: Daily Trend (filtered)
+    # ── Section 1: Daily Trend ────────────────────────────────────────────────
     st.markdown('<div class="section-header">📈 Daily Usage Trend</div>', unsafe_allow_html=True)
 
-    daily = daily_agg(df, selected_ym, m_dept_sel)
+    daily = daily_agg(selected_ym)
     daily["total"] = daily["on_peak"] + daily["off_peak"]
 
-    m_dept_label = m_dept_sel if m_dept_sel != "🏭 Factory (ทั้งหมด)" else "ทั้งโรงงาน"
-
     fig_trend = go.Figure()
-    fig_trend.add_trace(go.Bar(x=daily["date"], y=daily["off_peak"], name="Off Peak", marker_color="#1565c0", opacity=0.85))
-    fig_trend.add_trace(go.Bar(x=daily["date"], y=daily["on_peak"],  name="On Peak",  marker_color="#e65100", opacity=0.85))
+    fig_trend.add_trace(go.Bar(
+        x=daily["date"], y=daily["off_peak"],
+        name="Off Peak", marker_color="#1565c0", opacity=0.85,
+    ))
+    fig_trend.add_trace(go.Bar(
+        x=daily["date"], y=daily["on_peak"],
+        name="On Peak", marker_color="#e65100", opacity=0.85,
+    ))
     fig_trend.add_trace(go.Scatter(
         x=daily["date"], y=daily["total"],
         name="Total", mode="lines+markers",
         line=dict(color="#1a237e", width=2.5),
-        marker=dict(size=8, color="#1a237e"),
+        marker=dict(size=6, color="#1a237e"),
     ))
     fig_trend.update_layout(
-        barmode="stack", height=420,
-        yaxis_title="kWh",
-        title_text=f"การใช้ไฟฟ้ารายวัน — {sel_label} | {m_dept_label}",
-        title_font_size=17,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                    font=dict(size=15)),
-        margin=dict(t=60, b=30, l=30, r=30),
+        barmode="stack", height=380,
+        yaxis_title="kWh", xaxis_title="",
+        title_text=f"การใช้ไฟฟ้ารายวัน — {sel_label}",
+        title_font_size=15,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(t=50, b=20, l=20, r=20),
         plot_bgcolor="white", paper_bgcolor="white",
         hovermode="x unified",
-        font=dict(size=14),
     )
-    fig_trend.update_xaxes(dtick="D1", tickformat="%d %b", tickangle=-45, gridcolor="#f0f0f0",
-                           tickfont=dict(size=13))
-    fig_trend.update_yaxes(gridcolor="#f0f0f0", tickfont=dict(size=13))
+    fig_trend.update_xaxes(
+        dtick="D1", tickformat="%d %b",
+        tickangle=-45, gridcolor="#f0f0f0",
+    )
+    fig_trend.update_yaxes(gridcolor="#f0f0f0")
     st.plotly_chart(fig_trend, use_container_width=True)
 
-    # Section 2: Month-over-Month Comparison (filtered, uniform colors = same as Daily Trend)
+    # ── Section 2: Month-over-Month Comparison ────────────────────────────────
     st.markdown('<div class="section-header">📊 Month-over-Month Comparison</div>', unsafe_allow_html=True)
 
     mom_rows = []
     for ym in all_ym:
-        a = month_agg(df, ym, m_dept_sel)
+        a = month_agg(ym)
         mom_rows.append({
-            "ym": ym,
+            "ym":       ym,
             "label":    month_label(ym),
             "on_peak":  a["on_peak"],
             "off_peak": a["off_peak"],
@@ -617,223 +638,74 @@ with tab_monthly:
         })
     mom_df = pd.DataFrame(mom_rows)
 
+    colors_on  = ["#ffcc80" if ym != selected_ym else "#e65100" for ym in mom_df["ym"]]
+    colors_off = ["#90caf9" if ym != selected_ym else "#1565c0" for ym in mom_df["ym"]]
+
     fig_mom = go.Figure()
     fig_mom.add_trace(go.Bar(
         name="On Peak", x=mom_df["label"], y=mom_df["on_peak"],
-        marker_color="#e65100", opacity=0.85,
+        marker_color=colors_on,
         text=mom_df["on_peak"].apply(lambda v: f"{v:,.0f}"),
         textposition="inside", insidetextanchor="middle",
-        textfont=dict(color="white", size=13),
+        textfont=dict(color="white", size=12),
     ))
     fig_mom.add_trace(go.Bar(
         name="Off Peak", x=mom_df["label"], y=mom_df["off_peak"],
-        marker_color="#1565c0", opacity=0.85,
+        marker_color=colors_off,
         text=mom_df["off_peak"].apply(lambda v: f"{v:,.0f}"),
         textposition="inside", insidetextanchor="middle",
-        textfont=dict(color="white", size=13),
+        textfont=dict(color="white", size=12),
     ))
     for _, row in mom_df.iterrows():
         fig_mom.add_annotation(
             x=row["label"], y=row["total"],
             text=f"<b>{row['total']:,.0f}</b>",
-            showarrow=False, yshift=12,
-            font=dict(size=13, color="#1a237e"),
+            showarrow=False, yshift=10,
+            font=dict(size=11, color="#1a237e"),
         )
     fig_mom.update_layout(
-        barmode="stack", height=420,
+        barmode="stack", height=380,
         yaxis_title="kWh",
-        title_text=f"เปรียบเทียบการใช้ไฟฟ้ารายเดือน — {m_dept_label}",
-        title_font_size=17,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                    font=dict(size=15)),
-        margin=dict(t=60, b=40, l=30, r=30),
+        title_text="เปรียบเทียบการใช้ไฟฟ้ารายเดือน (เดือนที่เลือก = สีเข้ม)",
+        title_font_size=15,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(t=50, b=30, l=20, r=20),
         plot_bgcolor="white", paper_bgcolor="white",
-        font=dict(size=14),
     )
-    fig_mom.update_xaxes(tickfont=dict(size=13))
-    fig_mom.update_yaxes(gridcolor="#f0f0f0", tickfont=dict(size=13))
+    fig_mom.update_yaxes(gridcolor="#f0f0f0")
     st.plotly_chart(fig_mom, use_container_width=True)
 
     # Summary block
     if prev_ym:
-        prev_tot_val = month_agg(df, prev_ym, m_dept_sel)["on_peak"] + month_agg(df, prev_ym, m_dept_sel)["off_peak"]
-        diff_v     = total - prev_tot_val
-        pct_v      = diff_v / prev_tot_val * 100 if prev_tot_val else 0
-        direction  = "เพิ่มขึ้น" if diff_v >= 0 else "ลดลง"
-        dir_color  = "#e53935"   if diff_v >= 0 else "#43a047"
-        dir_icon   = "▲"         if diff_v >= 0 else "▼"
-        prev_txt   = f"เทียบกับ {prev_label}: {prev_tot_val:,.0f} kWh"
+        prev_tot_val = month_agg(prev_ym)["on_peak"] + month_agg(prev_ym)["off_peak"]
+        diff_v   = total - prev_tot_val
+        pct_v    = diff_v / prev_tot_val * 100 if prev_tot_val else 0
+        direction   = "เพิ่มขึ้น" if diff_v >= 0 else "ลดลง"
+        dir_color   = "#e53935"   if diff_v >= 0 else "#43a047"
+        dir_icon    = "▲"         if diff_v >= 0 else "▼"
+        prev_txt = f"เทียบกับ {prev_label_m}: {prev_tot_val:,.0f} kWh"
 
         st.markdown(f"""
-<div style="background:#f8f9ff;border-left:4px solid #1565c0;border-radius:8px;
-            padding:16px 24px;margin-top:4px;font-size:16px;line-height:2.2;color:#333;">
-  📋 <b>สรุปเดือน {sel_label} — {m_dept_label}</b><br>
-  ใช้ไฟฟ้ารวม <b>{total:,.0f} kWh</b> &nbsp;|&nbsp;
-  <span style="color:#e65100;font-weight:600;">● On Peak</span> <b>{on_kwh:,.0f} kWh</b>
-  <span style="color:#888;">({on_pct:.1f}%)</span> &emsp;
-  <span style="color:#1565c0;font-weight:600;">● Off Peak</span> <b>{off_kwh:,.0f} kWh</b>
-  <span style="color:#888;">({off_pct:.1f}%)</span><br>
-  {prev_txt} &nbsp;→&nbsp;
-  <span style="color:{dir_color};font-weight:700;">{dir_icon} {direction} {abs(diff_v):,.0f} kWh ({abs(pct_v):.1f}%)</span>
-</div>
-""", unsafe_allow_html=True)
+    <div style="background:#f8f9ff;border-left:4px solid #1565c0;border-radius:8px;
+                padding:14px 22px;margin-top:4px;font-size:14px;line-height:2.0;color:#333;">
+      📋 <b>สรุปเดือน {sel_label}</b><br>
+      ใช้ไฟฟ้ารวม <b>{total:,.0f} kWh</b> &nbsp;|&nbsp;
+      <span style="color:#e65100;font-weight:600;">● On Peak</span> <b>{on_kwh:,.0f} kWh</b>
+      <span style="color:#888;">({on_pct:.1f}%)</span> &emsp;
+      <span style="color:#1565c0;font-weight:600;">● Off Peak</span> <b>{off_kwh:,.0f} kWh</b>
+      <span style="color:#888;">({off_pct:.1f}%)</span><br>
+      {prev_txt} &nbsp;→&nbsp;
+      <span style="color:{dir_color};font-weight:700;">{dir_icon} {direction} {abs(diff_v):,.0f} kWh ({abs(pct_v):.1f}%)</span>
+    </div>
+    """, unsafe_allow_html=True)
 
-    # ── Section 3: Department Summary Table ──────────────────────────────────
-    st.markdown('<div class="section-header">📋 Department Summary Table</div>', unsafe_allow_html=True)
-
-    all_depts_m = sorted(df["department"].unique().tolist())
-    table_rows  = []
-    for dep in all_depts_m:
-        # Current month
-        cur = df[(df["ym"] == selected_ym) & (df["department"] == dep)][["on_peak", "off_peak"]].sum()
-        cur_on  = cur["on_peak"]
-        cur_off = cur["off_peak"]
-        cur_tot = cur_on + cur_off
-        cur_on_pct  = cur_on  / cur_tot * 100 if cur_tot else 0
-        cur_off_pct = cur_off / cur_tot * 100 if cur_tot else 0
-        cur_ratio   = f"{cur_on_pct:.0f} : {cur_off_pct:.0f}"
-
-        # Previous month
-        if prev_ym:
-            prv = df[(df["ym"] == prev_ym) & (df["department"] == dep)][["on_peak", "off_peak"]].sum()
-            prv_on  = prv["on_peak"]
-            prv_off = prv["off_peak"]
-            prv_tot = prv_on + prv_off
-            prv_on_pct  = prv_on  / prv_tot * 100 if prv_tot else 0
-            prv_off_pct = prv_off / prv_tot * 100 if prv_tot else 0
-            prv_ratio   = f"{prv_on_pct:.0f} : {prv_off_pct:.0f}"
-            chg         = (cur_tot - prv_tot) / prv_tot * 100 if prv_tot else 0
-        else:
-            prv_on = prv_off = prv_tot = 0
-            prv_ratio = "—"
-            chg = 0
-
-        table_rows.append({
-            "dept":    dep,
-            "cur_tot": cur_tot, "cur_on": cur_on, "cur_off": cur_off,
-            "cur_ratio": cur_ratio, "chg": chg,
-            "prv_tot": prv_tot, "prv_on": prv_on, "prv_off": prv_off,
-            "prv_ratio": prv_ratio,
-        })
-
-    # Sort by current total descending
-    table_rows.sort(key=lambda r: r["cur_tot"], reverse=True)
-
-    # ── Build HTML table — 100% inline styles (Streamlit strips <style> tags) ──
-    def chg_cell(v):
-        if v == 0:
-            return '<span style="color:#888;">—</span>'
-        color = "#e53935" if v > 0 else "#43a047"
-        arrow = "▲" if v > 0 else "▼"
-        return f'<span style="color:{color};font-weight:700;font-size:15px;">{arrow} {abs(v):.1f}%</span>'
-
-    def num(v):
-        return f"{v:,.0f}" if v else "—"
-
-    # Shared inline style strings
-    TD  = 'style="padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;font-size:15px;"'
-    TDR = 'style="padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;font-size:15px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;"'
-    TDC = 'style="padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;font-size:15px;text-align:center;"'
-    SEP = 'style="width:6px;background:#e8eaf6;padding:0;border-bottom:1px solid #f0f0f0;"'
-    # Total row
-    TTD  = 'style="padding:10px 14px;border-top:2px solid #1565c0;background:#e8eaf6;font-weight:700;font-size:15px;"'
-    TTDR = 'style="padding:10px 14px;border-top:2px solid #1565c0;background:#e8eaf6;font-weight:700;font-size:15px;text-align:right;font-variant-numeric:tabular-nums;"'
-    TTDC = 'style="padding:10px 14px;border-top:2px solid #1565c0;background:#e8eaf6;font-weight:700;font-size:15px;text-align:center;"'
-    TSEP = 'style="width:6px;background:#d0d5e8;padding:0;border-top:2px solid #1565c0;"'
-
-    rows_html = ""
-    for r in table_rows:
-        rows_html += f"""
-        <tr>
-          <td {TD} style="padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;font-size:15px;font-weight:600;white-space:nowrap;">{r['dept']}</td>
-          <td {TDR}>{num(r['cur_tot'])}</td>
-          <td {TDC}>{chg_cell(r['chg'])}</td>
-          <td style="padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;font-size:15px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;color:#e65100;">{num(r['cur_on'])}</td>
-          <td style="padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;font-size:15px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;color:#1565c0;">{num(r['cur_off'])}</td>
-          <td {TDC}>{r['cur_ratio']}</td>
-          <td {SEP}></td>
-          <td style="padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;font-size:15px;text-align:right;color:#888;font-variant-numeric:tabular-nums;">{num(r['prv_tot'])}</td>
-          <td style="padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;font-size:15px;text-align:right;color:#e09070;font-variant-numeric:tabular-nums;">{num(r['prv_on'])}</td>
-          <td style="padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;font-size:15px;text-align:right;color:#7090c0;font-variant-numeric:tabular-nums;">{num(r['prv_off'])}</td>
-          <td style="padding:10px 14px;border-bottom:1px solid #f0f0f0;vertical-align:middle;font-size:15px;text-align:center;color:#aaa;">{r['prv_ratio']}</td>
-        </tr>"""
-
-    # Totals row
-    gt_cur_on  = sum(r["cur_on"]  for r in table_rows)
-    gt_cur_off = sum(r["cur_off"] for r in table_rows)
-    gt_cur_tot = gt_cur_on + gt_cur_off
-    gt_prv_on  = sum(r["prv_on"]  for r in table_rows)
-    gt_prv_off = sum(r["prv_off"] for r in table_rows)
-    gt_prv_tot = gt_prv_on + gt_prv_off
-    gt_chg         = (gt_cur_tot - gt_prv_tot) / gt_prv_tot * 100 if gt_prv_tot else 0
-    gt_cur_on_pct  = gt_cur_on  / gt_cur_tot * 100 if gt_cur_tot else 0
-    gt_cur_off_pct = gt_cur_off / gt_cur_tot * 100 if gt_cur_tot else 0
-    gt_prv_on_pct  = gt_prv_on  / gt_prv_tot * 100 if gt_prv_tot else 0
-    gt_prv_off_pct = gt_prv_off / gt_prv_tot * 100 if gt_prv_tot else 0
-
-    rows_html += f"""
-        <tr>
-          <td {TTD}>🏭 รวมทั้งหมด</td>
-          <td {TTDR}>{num(gt_cur_tot)}</td>
-          <td {TTDC}>{chg_cell(gt_chg)}</td>
-          <td style="padding:10px 14px;border-top:2px solid #1565c0;background:#e8eaf6;font-weight:700;font-size:15px;text-align:right;color:#e65100;font-variant-numeric:tabular-nums;">{num(gt_cur_on)}</td>
-          <td style="padding:10px 14px;border-top:2px solid #1565c0;background:#e8eaf6;font-weight:700;font-size:15px;text-align:right;color:#1565c0;font-variant-numeric:tabular-nums;">{num(gt_cur_off)}</td>
-          <td {TTDC}>{gt_cur_on_pct:.0f} : {gt_cur_off_pct:.0f}</td>
-          <td {TSEP}></td>
-          <td style="padding:10px 14px;border-top:2px solid #1565c0;background:#e8eaf6;font-weight:700;font-size:15px;text-align:right;color:#666;font-variant-numeric:tabular-nums;">{num(gt_prv_tot)}</td>
-          <td style="padding:10px 14px;border-top:2px solid #1565c0;background:#e8eaf6;font-weight:700;font-size:15px;text-align:right;color:#b07050;font-variant-numeric:tabular-nums;">{num(gt_prv_on)}</td>
-          <td style="padding:10px 14px;border-top:2px solid #1565c0;background:#e8eaf6;font-weight:700;font-size:15px;text-align:right;color:#5070a0;font-variant-numeric:tabular-nums;">{num(gt_prv_off)}</td>
-          <td style="padding:10px 14px;border-top:2px solid #1565c0;background:#e8eaf6;font-weight:700;font-size:15px;text-align:center;color:#888;">{gt_prv_on_pct:.0f} : {gt_prv_off_pct:.0f}</td>
-        </tr>"""
-
-    prev_header = prev_label if prev_ym else "เดือนก่อน"
-
-    # Header inline styles
-    TH_BASE = 'style="background:#1a237e;color:#fff;padding:11px 14px;font-size:14px;font-weight:700;white-space:nowrap;"'
-    TH_CUR  = 'style="background:#1565c0;color:#fff;padding:11px 14px;font-size:14px;font-weight:700;white-space:nowrap;"'
-    TH_PRV  = 'style="background:#546e7a;color:#fff;padding:11px 14px;font-size:14px;font-weight:700;white-space:nowrap;"'
-
-    table_html = f"""
-<div style="overflow-x:auto;margin-top:8px;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,0.10);">
-<table style="width:100%;border-collapse:collapse;font-size:15px;">
-  <thead>
-    <tr>
-      <th rowspan="2" {TH_BASE} style="background:#1a237e;color:#fff;padding:11px 14px;font-size:14px;font-weight:700;white-space:nowrap;text-align:left;vertical-align:middle;">แผนก</th>
-      <th colspan="5" {TH_CUR} style="background:#1565c0;color:#fff;padding:11px 14px;font-size:14px;font-weight:700;text-align:center;border-bottom:1px solid rgba(255,255,255,0.25);">
-        📅 เดือนนี้ — {sel_label}
-      </th>
-      <th rowspan="2" style="width:8px;background:#c5cae9;padding:0;vertical-align:middle;"></th>
-      <th colspan="4" {TH_PRV} style="background:#546e7a;color:#fff;padding:11px 14px;font-size:14px;font-weight:700;text-align:center;border-bottom:1px solid rgba(255,255,255,0.25);">
-        🕓 เดือนก่อน — {prev_header}
-      </th>
-    </tr>
-    <tr>
-      <th {TH_CUR} style="background:#1565c0;color:#fff;padding:11px 14px;font-size:13px;font-weight:700;text-align:right;">Total (kWh)</th>
-      <th {TH_CUR} style="background:#1565c0;color:#fff;padding:11px 14px;font-size:13px;font-weight:700;text-align:center;">เทียบเดือนก่อน</th>
-      <th {TH_CUR} style="background:#1565c0;color:#ffcc80;padding:11px 14px;font-size:13px;font-weight:700;text-align:right;">On Peak (kWh)</th>
-      <th {TH_CUR} style="background:#1565c0;color:#90caf9;padding:11px 14px;font-size:13px;font-weight:700;text-align:right;">Off Peak (kWh)</th>
-      <th {TH_CUR} style="background:#1565c0;color:#fff;padding:11px 14px;font-size:13px;font-weight:700;text-align:center;">On:Off %</th>
-      <th {TH_PRV} style="background:#546e7a;color:#fff;padding:11px 14px;font-size:13px;font-weight:700;text-align:right;">Total (kWh)</th>
-      <th {TH_PRV} style="background:#546e7a;color:#ffcc80;padding:11px 14px;font-size:13px;font-weight:700;text-align:right;">On Peak (kWh)</th>
-      <th {TH_PRV} style="background:#546e7a;color:#90caf9;padding:11px 14px;font-size:13px;font-weight:700;text-align:right;">Off Peak (kWh)</th>
-      <th {TH_PRV} style="background:#546e7a;color:#fff;padding:11px 14px;font-size:13px;font-weight:700;text-align:center;">On:Off %</th>
-    </tr>
-  </thead>
-  <tbody>
-    {rows_html}
-  </tbody>
-</table>
-</div>
-"""
-    st.markdown(table_html, unsafe_allow_html=True)
-
-    # Footer
+    # ── Footer ────────────────────────────────────────────────────────────────
     st.markdown("---")
-    num_days     = df[df["ym"] == selected_ym]["date"].nunique()
+    num_days = df[df["ym"] == selected_ym]["date"].nunique()
     last_updated = datetime.now().strftime("%d/%m/%Y %H:%M")
     st.caption(
         f"📅 เดือนที่เลือก: **{sel_label}** | "
         f"จำนวนข้อมูล: **{num_days} วัน** | "
-        f"เดือนก่อน: **{prev_label}** | "
+        f"เดือนก่อน: **{prev_label_m}** | "
         f"🕐 โหลดล่าสุด: {last_updated}"
     )
