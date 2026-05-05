@@ -678,6 +678,163 @@ with tab_monthly:
 </div>
 """, unsafe_allow_html=True)
 
+    # ── Section 3: Department Summary Table ──────────────────────────────────
+    st.markdown('<div class="section-header">📋 Department Summary Table</div>', unsafe_allow_html=True)
+
+    all_depts_m = sorted(df["department"].unique().tolist())
+    table_rows  = []
+    for dep in all_depts_m:
+        # Current month
+        cur = df[(df["ym"] == selected_ym) & (df["department"] == dep)][["on_peak", "off_peak"]].sum()
+        cur_on  = cur["on_peak"]
+        cur_off = cur["off_peak"]
+        cur_tot = cur_on + cur_off
+        cur_on_pct  = cur_on  / cur_tot * 100 if cur_tot else 0
+        cur_off_pct = cur_off / cur_tot * 100 if cur_tot else 0
+        cur_ratio   = f"{cur_on_pct:.0f} : {cur_off_pct:.0f}"
+
+        # Previous month
+        if prev_ym:
+            prv = df[(df["ym"] == prev_ym) & (df["department"] == dep)][["on_peak", "off_peak"]].sum()
+            prv_on  = prv["on_peak"]
+            prv_off = prv["off_peak"]
+            prv_tot = prv_on + prv_off
+            prv_on_pct  = prv_on  / prv_tot * 100 if prv_tot else 0
+            prv_off_pct = prv_off / prv_tot * 100 if prv_tot else 0
+            prv_ratio   = f"{prv_on_pct:.0f} : {prv_off_pct:.0f}"
+            chg         = (cur_tot - prv_tot) / prv_tot * 100 if prv_tot else 0
+        else:
+            prv_on = prv_off = prv_tot = 0
+            prv_ratio = "—"
+            chg = 0
+
+        table_rows.append({
+            "dept":    dep,
+            "cur_tot": cur_tot, "cur_on": cur_on, "cur_off": cur_off,
+            "cur_ratio": cur_ratio, "chg": chg,
+            "prv_tot": prv_tot, "prv_on": prv_on, "prv_off": prv_off,
+            "prv_ratio": prv_ratio,
+        })
+
+    # Sort by current total descending
+    table_rows.sort(key=lambda r: r["cur_tot"], reverse=True)
+
+    # ── Build HTML table ──────────────────────────────────────────────────────
+    def chg_cell(v):
+        if v == 0:
+            return '<span style="color:#888;">—</span>'
+        color  = "#e53935" if v > 0 else "#43a047"
+        arrow  = "▲" if v > 0 else "▼"
+        return f'<span style="color:{color};font-weight:700;">{arrow} {abs(v):.1f}%</span>'
+
+    def num(v):
+        return f"{v:,.0f}" if v else "—"
+
+    rows_html = ""
+    for r in table_rows:
+        rows_html += f"""
+        <tr>
+          <td style="font-weight:600;white-space:nowrap">{r['dept']}</td>
+          <td class="num">{num(r['cur_tot'])}</td>
+          <td style="text-align:center">{chg_cell(r['chg'])}</td>
+          <td class="num" style="color:#e65100">{num(r['cur_on'])}</td>
+          <td class="num" style="color:#1565c0">{num(r['cur_off'])}</td>
+          <td style="text-align:center">{r['cur_ratio']}</td>
+          <td class="sep"></td>
+          <td class="num muted">{num(r['prv_tot'])}</td>
+          <td class="num muted" style="color:#e65100">{num(r['prv_on'])}</td>
+          <td class="num muted" style="color:#1565c0">{num(r['prv_off'])}</td>
+          <td style="text-align:center;color:#aaa">{r['prv_ratio']}</td>
+        </tr>"""
+
+    # Totals row
+    gt_cur_on  = sum(r["cur_on"]  for r in table_rows)
+    gt_cur_off = sum(r["cur_off"] for r in table_rows)
+    gt_cur_tot = gt_cur_on + gt_cur_off
+    gt_prv_on  = sum(r["prv_on"]  for r in table_rows)
+    gt_prv_off = sum(r["prv_off"] for r in table_rows)
+    gt_prv_tot = gt_prv_on + gt_prv_off
+    gt_chg     = (gt_cur_tot - gt_prv_tot) / gt_prv_tot * 100 if gt_prv_tot else 0
+    gt_cur_on_pct  = gt_cur_on  / gt_cur_tot * 100 if gt_cur_tot else 0
+    gt_cur_off_pct = gt_cur_off / gt_cur_tot * 100 if gt_cur_tot else 0
+    gt_prv_on_pct  = gt_prv_on  / gt_prv_tot * 100 if gt_prv_tot else 0
+    gt_prv_off_pct = gt_prv_off / gt_prv_tot * 100 if gt_prv_tot else 0
+
+    rows_html += f"""
+        <tr class="total-row">
+          <td style="font-weight:800">🏭 รวมทั้งหมด</td>
+          <td class="num">{num(gt_cur_tot)}</td>
+          <td style="text-align:center">{chg_cell(gt_chg)}</td>
+          <td class="num" style="color:#e65100">{num(gt_cur_on)}</td>
+          <td class="num" style="color:#1565c0">{num(gt_cur_off)}</td>
+          <td style="text-align:center">{gt_cur_on_pct:.0f} : {gt_cur_off_pct:.0f}</td>
+          <td class="sep"></td>
+          <td class="num muted">{num(gt_prv_tot)}</td>
+          <td class="num muted" style="color:#e65100">{num(gt_prv_on)}</td>
+          <td class="num muted" style="color:#1565c0">{num(gt_prv_off)}</td>
+          <td style="text-align:center;color:#aaa">{gt_prv_on_pct:.0f} : {gt_prv_off_pct:.0f}</td>
+        </tr>"""
+
+    prev_header = prev_label if prev_ym else "เดือนก่อน"
+
+    table_html = f"""
+<style>
+  .sum-table {{
+    width:100%; border-collapse:collapse; font-size:15px;
+    border-radius:10px; overflow:hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }}
+  .sum-table th {{
+    background:#1a237e; color:#fff; padding:11px 14px;
+    font-size:13px; font-weight:700; letter-spacing:0.3px;
+    white-space:nowrap;
+  }}
+  .sum-table th.group-cur {{ background:#1565c0; }}
+  .sum-table th.group-prv {{ background:#546e7a; }}
+  .sum-table td {{ padding:10px 14px; border-bottom:1px solid #f0f0f0; vertical-align:middle; }}
+  .sum-table tr:hover td {{ background:#f5f8ff; }}
+  .sum-table .num {{ text-align:right; font-variant-numeric:tabular-nums; font-weight:600; }}
+  .sum-table .muted {{ color:#888 !important; font-weight:400 !important; }}
+  .sum-table .sep {{ width:6px; background:#e8eaf6; padding:0; }}
+  .sum-table .total-row td {{
+    background:#e8eaf6; font-weight:700;
+    border-top:2px solid #1565c0;
+  }}
+  .sum-table .total-row:hover td {{ background:#dde2f0; }}
+</style>
+<div style="overflow-x:auto; margin-top:8px;">
+<table class="sum-table">
+  <thead>
+    <tr>
+      <th rowspan="2" style="text-align:left; background:#1a237e;">แผนก</th>
+      <th colspan="5" class="group-cur" style="text-align:center; border-bottom:1px solid rgba(255,255,255,0.3);">
+        📅 เดือนนี้ — {sel_label}
+      </th>
+      <th rowspan="2" class="sep" style="width:6px;padding:0;"></th>
+      <th colspan="4" class="group-prv" style="text-align:center; border-bottom:1px solid rgba(255,255,255,0.3);">
+        🕓 เดือนก่อน — {prev_header}
+      </th>
+    </tr>
+    <tr>
+      <th class="group-cur" style="text-align:right;">Total (kWh)</th>
+      <th class="group-cur" style="text-align:center;">เทียบเดือนก่อน</th>
+      <th class="group-cur" style="text-align:right; color:#ffcc80;">On Peak (kWh)</th>
+      <th class="group-cur" style="text-align:right; color:#90caf9;">Off Peak (kWh)</th>
+      <th class="group-cur" style="text-align:center;">On:Off Ratio</th>
+      <th class="group-prv" style="text-align:right;">Total (kWh)</th>
+      <th class="group-prv" style="text-align:right; color:#ffcc80;">On Peak (kWh)</th>
+      <th class="group-prv" style="text-align:right; color:#90caf9;">Off Peak (kWh)</th>
+      <th class="group-prv" style="text-align:center;">On:Off Ratio</th>
+    </tr>
+  </thead>
+  <tbody>
+    {rows_html}
+  </tbody>
+</table>
+</div>
+"""
+    st.markdown(table_html, unsafe_allow_html=True)
+
     # Footer
     st.markdown("---")
     num_days     = df[df["ym"] == selected_ym]["date"].nunique()
