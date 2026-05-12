@@ -1031,11 +1031,11 @@ with tab_wkton:
         fig_trend_wkt.add_trace(go.Scatter(
             name="kWh/Ton", x=trend_df["label"], y=trend_df["kpt"],
             mode="lines+markers+text",
-            line=dict(color="#00838f", width=2.5),
-            marker=dict(size=7, color="#00838f"),
+            line=dict(color="#02bdb3", width=2.5),
+            marker=dict(size=7, color="#02bdb3"),
             text=trend_df["kpt"].apply(lambda v: f"{v:.1f}" if pd.notna(v) else ""),
             textposition="top center",
-            textfont=dict(size=11, color="#00838f"),
+            textfont=dict(size=11, color="#02bdb3"),
         ), secondary_y=True)
 
     fig_trend_wkt.update_layout(
