@@ -230,7 +230,7 @@ with st.spinner("⏳ กำลังดึงข้อมูลจาก Google 
     ton = load_ton_data()
 
 # ─── Tabs ─────────────────────────────────────────────────────────────────────
-tab_weekly, tab_wkton, tab_monthly, tab_monton = st.tabs(["📋 Weekly Overview", "📋 Weekly kWh/Ton", "📅 Monthly Dashboard", "📅 Monthly kWh/Ton"])
+tab_weekly, tab_wkton, tab_monthly, tab_monton, tab_daily = st.tabs(["📋 Weekly Overview", "📋 Weekly kWh/Ton", "📅 Monthly Dashboard", "📅 Monthly kWh/Ton", "📊 Daily Analysis"])
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -438,11 +438,11 @@ with tab_weekly:
         fig_w.add_trace(go.Scatter(
             name="kWh/Ton", x=x_labels, y=kpt_vals,
             mode="lines+markers+text",
-            line=dict(color="#02bdb3", width=3, dash="dot"),
-            marker=dict(size=10, color="#02bdb3"),
+            line=dict(color="#00838f", width=3, dash="dot"),
+            marker=dict(size=10, color="#00838f"),
             text=[f"{v:.2f}" if v else "" for v in kpt_vals],
             textposition="top center",
-            textfont=dict(size=16, color="#02bdb3"),
+            textfont=dict(size=14, color="#00838f"),
         ), secondary_y=True)
 
     fig_w.update_layout(
@@ -1031,11 +1031,11 @@ with tab_wkton:
         fig_trend_wkt.add_trace(go.Scatter(
             name="kWh/Ton", x=trend_df["label"], y=trend_df["kpt"],
             mode="lines+markers+text",
-            line=dict(color="#02bdb3", width=2.5),
-            marker=dict(size=7, color="#02bdb3"),
+            line=dict(color="#00838f", width=2.5),
+            marker=dict(size=7, color="#00838f"),
             text=trend_df["kpt"].apply(lambda v: f"{v:.1f}" if pd.notna(v) else ""),
             textposition="top center",
-            textfont=dict(size=11, color="#02bdb3"),
+            textfont=dict(size=11, color="#00838f"),
         ), secondary_y=True)
 
     fig_trend_wkt.update_layout(
@@ -1282,3 +1282,299 @@ with tab_monton:
     num_days_mkt = df[df["ym"] == mkt_sel_ym]["date"].nunique()
     last_updated = datetime.now().strftime("%d/%m/%Y %H:%M")
     st.caption(f"📅 {mkt_sel_lbl} | {num_days_mkt} วัน | ก่อน: {mkt_prev_lbl} | 🕐 {last_updated}")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 5 — DAILY ANALYSIS
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_daily:
+
+    def da_month_label(ym):
+        y, m = ym.split("-")
+        return f"{MONTH_TH[int(m)]} {y}"
+
+    def da_daily_kwh(ym, dept_filter=None):
+        sub = df[df["ym"] == ym]
+        if dept_filter and dept_filter != "🏭 Factory (ทั้งหมด)":
+            sub = sub[sub["department"] == dept_filter]
+        return sub.groupby("date")[["on_peak", "off_peak"]].sum().reset_index().sort_values("date")
+
+    def da_dept_month(ym):
+        sub = df[df["ym"] == ym]
+        grp = sub.groupby("department")[["on_peak", "off_peak"]].sum().reset_index()
+        grp["total"] = grp["on_peak"] + grp["off_peak"]
+        return grp.sort_values("total", ascending=False)
+
+    def da_month_ton(ym):
+        if ton.empty:
+            return pd.DataFrame(columns=["date", "ton"])
+        t = ton[ton["ym"] == ym][["date", "ton"]].copy()
+        t["date"] = pd.to_datetime(t["date"])
+        return t.sort_values("date")
+
+    def da_prev_dept(ym):
+        all_ym_list = sorted(df["ym"].unique().tolist())
+        idx = all_ym_list.index(ym) if ym in all_ym_list else -1
+        if idx <= 0:
+            return None
+        prev = all_ym_list[idx - 1]
+        sub = df[df["ym"] == prev]
+        grp = sub.groupby("department")[["on_peak", "off_peak"]].sum().reset_index()
+        grp["total"] = grp["on_peak"] + grp["off_peak"]
+        return grp.set_index("department")
+
+    st.markdown('<div class="main-title">📊 Daily Analysis</div>', unsafe_allow_html=True)
+    st.markdown('<div class="month-subtitle">รายละเอียดการใช้พลังงานและการผลิตรายวัน</div>',
+                unsafe_allow_html=True)
+
+    all_ym_da = sorted(df["ym"].unique().tolist())
+    if not all_ym_da:
+        st.error("ไม่พบข้อมูล")
+        st.stop()
+
+    # ── Filters ──────────────────────────────────────────────────────────────
+    col_da1, col_da2, col_da3 = st.columns([1, 1, 2])
+    with col_da1:
+        da_sel_ym = st.selectbox(
+            "📅 เลือกเดือน",
+            options=all_ym_da,
+            format_func=da_month_label,
+            index=len(all_ym_da) - 1,
+            key="daily_ym_sel",
+        )
+    with col_da2:
+        da_depts    = ["🏭 Factory (ทั้งหมด)"] + sorted(df["department"].unique().tolist())
+        da_dept_sel = st.selectbox("🔍 เลือกแผนก", da_depts, index=0, key="daily_dept_sel")
+
+    st.markdown("---")
+
+    # ── Aggregate data ────────────────────────────────────────────────────────
+    da_sel_lbl  = da_month_label(da_sel_ym)
+    da_daily    = da_daily_kwh(da_sel_ym, da_dept_sel)
+    da_daily["total"] = da_daily["on_peak"] + da_daily["off_peak"]
+
+    da_ton_df   = da_month_ton(da_sel_ym)
+
+    # Merge ton into daily
+    if not da_ton_df.empty:
+        da_daily = da_daily.merge(da_ton_df, on="date", how="left")
+        da_daily["kpt"] = da_daily.apply(
+            lambda r: round(r["total"] / r["ton"], 2) if pd.notna(r.get("ton")) and r["ton"] > 0 else None, axis=1
+        )
+    else:
+        da_daily["ton"] = None
+        da_daily["kpt"] = None
+
+    # KPI totals
+    da_on    = da_daily["on_peak"].sum()
+    da_off   = da_daily["off_peak"].sum()
+    da_total = da_on + da_off
+    da_ton_total = da_ton_df["ton"].sum() if not da_ton_df.empty else 0
+    da_kpt   = da_total / da_ton_total if da_ton_total > 0 else None
+    da_on_pct  = da_on  / da_total * 100 if da_total else 0
+    da_off_pct = da_off / da_total * 100 if da_total else 0
+
+    # Compare prev month
+    all_ym_da_list = sorted(df["ym"].unique().tolist())
+    da_prev_ym = all_ym_da_list[all_ym_da_list.index(da_sel_ym) - 1] \
+                 if all_ym_da_list.index(da_sel_ym) > 0 else None
+    if da_prev_ym:
+        da_prev_daily = da_daily_kwh(da_prev_ym, da_dept_sel)
+        da_prev_total = (da_prev_daily["on_peak"] + da_prev_daily["off_peak"]).sum()
+        da_prev_ton   = da_month_ton(da_prev_ym)["ton"].sum() if not da_month_ton(da_prev_ym).empty else 0
+        da_prev_kpt   = da_prev_total / da_prev_ton if da_prev_ton > 0 else None
+        chg_da_total  = (da_total - da_prev_total) / da_prev_total * 100 if da_prev_total else 0
+        chg_da_kpt    = (da_kpt - da_prev_kpt) / da_prev_kpt * 100 if (da_kpt and da_prev_kpt) else 0
+    else:
+        chg_da_total = chg_da_kpt = 0
+        da_prev_kpt  = None
+
+    # ── KPI Cards ─────────────────────────────────────────────────────────────
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.markdown(f"""
+        <div class="kpi-card">
+            <div class="kpi-label">Total kWh</div>
+            <div class="kpi-value">{da_total:,.0f} <span class="kpi-unit">kWh</span></div>
+            <div class="kpi-sub">vs เดือนก่อน &nbsp; {badge(chg_da_total)}</div>
+        </div>""", unsafe_allow_html=True)
+    with c2:
+        st.markdown(f"""
+        <div class="kpi-card" style="border-top-color:#e65100">
+            <div class="kpi-label">On Peak</div>
+            <div class="kpi-value kpi-on">{da_on:,.0f} <span class="kpi-unit">kWh</span></div>
+            <div class="kpi-sub">({da_on_pct:.0f}% ของทั้งหมด)</div>
+        </div>""", unsafe_allow_html=True)
+    with c3:
+        st.markdown(f"""
+        <div class="kpi-card" style="border-top-color:#2e7d32">
+            <div class="kpi-label">Off Peak</div>
+            <div class="kpi-value kpi-off">{da_off:,.0f} <span class="kpi-unit">kWh</span></div>
+            <div class="kpi-sub">({da_off_pct:.0f}% ของทั้งหมด)</div>
+        </div>""", unsafe_allow_html=True)
+    with c4:
+        if da_kpt:
+            st.markdown(f"""
+            <div class="kpi-card" style="border-top-color:#00838f">
+                <div class="kpi-label">kWh / Ton</div>
+                <div class="kpi-value kpi-ton">{da_kpt:,.2f}</div>
+                <div class="kpi-sub">Ton: {da_ton_total:,.1f} &nbsp; {badge(chg_da_kpt)}</div>
+            </div>""", unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div class="kpi-card" style="border-top-color:#00838f">
+                <div class="kpi-label">kWh / Ton</div>
+                <div class="kpi-value kpi-ton" style="font-size:16px">ไม่มีข้อมูล</div>
+                <div class="kpi-sub">ตรวจสอบ Sheet "Product Ton"</div>
+            </div>""", unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Chart 1: Daily kWh (On/Off stacked + Total line) ──────────────────────
+    st.markdown('<div class="section-header">⚡ kWh รายวัน — On Peak / Off Peak</div>',
+                unsafe_allow_html=True)
+
+    fig_da_kwh = make_subplots()
+    fig_da_kwh.add_trace(go.Bar(
+        name="Off Peak", x=da_daily["date"], y=da_daily["off_peak"],
+        marker_color="#1565c0", opacity=0.85,
+    ))
+    fig_da_kwh.add_trace(go.Bar(
+        name="On Peak", x=da_daily["date"], y=da_daily["on_peak"],
+        marker_color="#e65100", opacity=0.85,
+    ))
+    fig_da_kwh.add_trace(go.Scatter(
+        name="Total", x=da_daily["date"], y=da_daily["total"],
+        mode="lines+markers",
+        line=dict(color="#1a237e", width=2),
+        marker=dict(size=4),
+    ))
+    fig_da_kwh.update_layout(
+        barmode="stack", height=350,
+        yaxis_title="kWh",
+        title_text=f"On Peak / Off Peak รายวัน — {da_sel_lbl} | {da_dept_sel}",
+        title_font_size=14,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(t=50, b=10, l=20, r=20),
+        plot_bgcolor="white", paper_bgcolor="white",
+        hovermode="x unified",
+    )
+    fig_da_kwh.update_xaxes(dtick="D1", tickformat="%d %b", tickangle=-45, gridcolor="#f0f0f0")
+    fig_da_kwh.update_yaxes(gridcolor="#f0f0f0")
+    st.plotly_chart(fig_da_kwh, use_container_width=True)
+
+    # ── Chart 2: Daily Production Ton ─────────────────────────────────────────
+    st.markdown('<div class="section-header">🏭 Production Ton รายวัน</div>', unsafe_allow_html=True)
+
+    if not da_ton_df.empty:
+        fig_da_ton = go.Figure()
+        fig_da_ton.add_trace(go.Bar(
+            name="Production Ton",
+            x=da_ton_df["date"], y=da_ton_df["ton"],
+            marker_color="#f57f17", opacity=0.85,
+            text=da_ton_df["ton"].apply(lambda v: f"{v:,.1f}"),
+            textposition="outside",
+            textfont=dict(size=9),
+        ))
+        fig_da_ton.update_layout(
+            height=320,
+            yaxis_title="Ton",
+            title_text=f"Production Ton รายวัน — {da_sel_lbl}",
+            title_font_size=14,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            margin=dict(t=50, b=10, l=20, r=20),
+            plot_bgcolor="white", paper_bgcolor="white",
+            hovermode="x unified",
+        )
+        fig_da_ton.update_xaxes(dtick="D1", tickformat="%d %b", tickangle=-45, gridcolor="#f0f0f0")
+        fig_da_ton.update_yaxes(gridcolor="#f0f0f0")
+        st.plotly_chart(fig_da_ton, use_container_width=True)
+    else:
+        st.info("ไม่มีข้อมูล Production Ton ในเดือนนี้")
+
+    # ── Chart 3: Daily kWh/Ton ────────────────────────────────────────────────
+    if "kpt" in da_daily.columns and da_daily["kpt"].notna().any():
+        st.markdown('<div class="section-header">📈 kWh/Ton รายวัน</div>', unsafe_allow_html=True)
+
+        fig_da_kpt = go.Figure()
+        fig_da_kpt.add_trace(go.Scatter(
+            name="kWh/Ton",
+            x=da_daily["date"], y=da_daily["kpt"],
+            mode="lines+markers+text",
+            line=dict(color="#00838f", width=2.5),
+            marker=dict(size=7, color="#00838f"),
+            text=da_daily["kpt"].apply(lambda v: f"{v:.1f}" if pd.notna(v) else ""),
+            textposition="top center",
+            textfont=dict(size=9, color="#00838f"),
+        ))
+        # Reference line: monthly avg kWh/Ton
+        if da_kpt:
+            fig_da_kpt.add_hline(
+                y=da_kpt, line_dash="dot", line_color="#1a237e", line_width=1.5,
+                annotation_text=f"เฉลี่ยเดือน: {da_kpt:.2f}",
+                annotation_position="bottom right",
+                annotation_font_size=11,
+            )
+        fig_da_kpt.update_layout(
+            height=300,
+            yaxis_title="kWh/Ton",
+            title_text=f"kWh/Ton รายวัน — {da_sel_lbl} | {da_dept_sel}",
+            title_font_size=14,
+            margin=dict(t=50, b=10, l=20, r=20),
+            plot_bgcolor="white", paper_bgcolor="white",
+            hovermode="x unified",
+        )
+        fig_da_kpt.update_xaxes(dtick="D1", tickformat="%d %b", tickangle=-45, gridcolor="#f0f0f0")
+        fig_da_kpt.update_yaxes(gridcolor="#f0f0f0")
+        st.plotly_chart(fig_da_kpt, use_container_width=True)
+
+    # ── Department Breakdown (month total) ────────────────────────────────────
+    st.markdown('<div class="section-header">🏢 การใช้ไฟรายแผนก — ทั้งเดือน</div>', unsafe_allow_html=True)
+
+    da_dept_df   = da_dept_month(da_sel_ym)
+    da_prev_dept = da_prev_dept(da_sel_ym)
+    max_total    = da_dept_df["total"].max() if not da_dept_df.empty else 1
+
+    for _, row in da_dept_df.iterrows():
+        dep      = row["department"]
+        d_on     = row["on_peak"]
+        d_off    = row["off_peak"]
+        d_tot    = row["total"]
+        pct_bar  = d_tot / max_total * 100 if max_total else 0
+        d_on_pct = d_on / d_tot * 100 if d_tot else 0
+        d_off_pct= d_off / d_tot * 100 if d_tot else 0
+
+        if da_prev_dept is not None and dep in da_prev_dept.index:
+            prev_tot = da_prev_dept.loc[dep, "total"]
+            pct_chg  = (d_tot - prev_tot) / prev_tot * 100 if prev_tot else 0
+            chg_str  = badge(pct_chg)
+        else:
+            chg_str  = ""
+
+        st.markdown(f"""
+<div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);
+            padding:10px 14px;margin-bottom:8px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+    <span style="font-size:14px;font-weight:500;color:var(--color-text-primary);">{dep}</span>
+    <span style="font-size:13px;color:var(--color-text-secondary);">
+      {chg_str} &nbsp;
+      <b style="color:var(--color-text-primary)">{d_tot:,.0f} kWh</b>
+    </span>
+  </div>
+  <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;width:{pct_bar:.0f}%;min-width:20px;">
+    <div style="flex:{d_on_pct};background:#e65100;"></div>
+    <div style="flex:{d_off_pct};background:#1565c0;"></div>
+  </div>
+  <div style="display:flex;gap:16px;margin-top:5px;font-size:11px;color:var(--color-text-secondary);">
+    <span><span style="color:#e65100;font-weight:500;">●</span> On Peak {d_on:,.0f} kWh ({d_on_pct:.0f}%)</span>
+    <span><span style="color:#1565c0;font-weight:500;">●</span> Off Peak {d_off:,.0f} kWh ({d_off_pct:.0f}%)</span>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+    # ── Footer ────────────────────────────────────────────────────────────────
+    st.markdown("---")
+    num_days_da  = da_daily["date"].nunique()
+    last_updated = datetime.now().strftime("%d/%m/%Y %H:%M")
+    st.caption(
+        f"📅 {da_sel_lbl} | {num_days_da} วัน | แผนก: {da_dept_sel} | 🕐 {last_updated}"
+    )
