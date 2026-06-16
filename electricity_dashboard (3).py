@@ -562,7 +562,8 @@ with tab_monthly:
         return sub.groupby("department")[["on_peak", "off_peak"]].sum().reset_index()
 
     def daily_agg(ym, dept_filter=None):
-        sub = df[df["ym"] == ym]
+        y, m = int(ym.split("-")[0]), int(ym.split("-")[1])
+        sub = df[(df["date"].dt.year == y) & (df["date"].dt.month == m)]
         if dept_filter and dept_filter != "🏭 Factory (ทั้งหมด)":
             sub = sub[sub["department"] == dept_filter]
         return sub.groupby("date")[["on_peak", "off_peak"]].sum().reset_index().sort_values("date")
@@ -1294,7 +1295,8 @@ with tab_daily:
         return f"{MONTH_TH[int(m)]} {y}"
 
     def da_daily_kwh(ym, dept_filter=None):
-        sub = df[df["ym"] == ym]
+        y, m = int(ym.split("-")[0]), int(ym.split("-")[1])
+        sub = df[(df["date"].dt.year == y) & (df["date"].dt.month == m)]
         if dept_filter and dept_filter != "🏭 Factory (ทั้งหมด)":
             sub = sub[sub["department"] == dept_filter]
         return sub.groupby("date")[["on_peak", "off_peak"]].sum().reset_index().sort_values("date")
@@ -1308,8 +1310,10 @@ with tab_daily:
     def da_month_ton(ym):
         if ton.empty:
             return pd.DataFrame(columns=["date", "ton"])
-        t = ton[ton["ym"] == ym][["date", "ton"]].copy()
+        y, m = int(ym.split("-")[0]), int(ym.split("-")[1])
+        t = ton.copy()
         t["date"] = pd.to_datetime(t["date"])
+        t = t[(t["date"].dt.year == y) & (t["date"].dt.month == m)][["date", "ton"]]
         return t.sort_values("date")
 
     def da_prev_dept(ym):
