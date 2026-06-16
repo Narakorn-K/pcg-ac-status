@@ -179,7 +179,8 @@ def load_data():
     df["year"]      = df["date"].dt.isocalendar().year.astype(int)
     df["year_week"] = df["year"].astype(str) + "-W" + df["week_num"].astype(str).str.zfill(2)
     df["month"]     = df["date"].dt.month
-    df["ym"]        = df["year"].astype(str) + "-" + df["month"].astype(str).str.zfill(2)
+    df["cal_year"]  = df["date"].dt.year   # calendar year (ไม่ใช่ ISO year)
+    df["ym"]        = df["cal_year"].astype(str) + "-" + df["month"].astype(str).str.zfill(2)
     return df
 
 
