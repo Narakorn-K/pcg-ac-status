@@ -24,9 +24,17 @@ from streamlit_autorefresh import st_autorefresh
 SHEET_ID = "1gFKOoTb9XnarHqawBima7fuDb82yg5KXFqL15f_plpw"
 GID = "0"  # เลข gid ของแท็บ (ดูจากท้าย URL หลัง #gid=)
 
-# ชื่อคอลัมน์ตามหัวตารางในชีต (ต้องตรงกับที่เห็นในสกรีนช็อต)
+# ชื่อคอลัมน์ตามหัวตารางในชีต (ต้องตรงกับที่เห็นในสกรีนช็อต ห้ามแก้)
 COL_TIME = "Timestamp"
-AC_COLS = {
+SHEET_COLS = {
+    "ac1_3": "AC1-3",
+    "ac4_6": "AC4-6",
+    "ac7": "AC7",
+    "ac8": "AC8",
+}
+
+# ชื่อที่อยากให้แสดงบนหน้าจอ (แก้ได้อิสระ ไม่ต้องตรงกับชีต)
+DISPLAY_NAMES = {
     "ac1_3": "AC1-3 (Production)",
     "ac4_6": "AC4-6 (Production)",
     "ac7": "AC7 (Packing)",
@@ -45,8 +53,8 @@ st.set_page_config(page_title="AC Compressor Power Monitor", page_icon="⚡", la
 st_autorefresh(interval=REFRESH_SEC * 1000, key="refresh")
 
 # ============== ปรับขนาดฟอนต์ตรงนี้ ==============
-TITLE_FONT_SIZE = "2.2rem"    # หัวข้อบนสุด
-METRIC_LABEL_SIZE = "3rem"  # ชื่อหัวข้อในแต่ละกล่อง (เช่น AC1-3)
+TITLE_FONT_SIZE = "3.0rem"    # หัวข้อบนสุด
+METRIC_LABEL_SIZE = "3.0rem"  # ชื่อหัวข้อในแต่ละกล่อง (เช่น AC1-3)
 METRIC_VALUE_SIZE = "2.8rem"  # ตัวเลข kW ตัวใหญ่
 METRIC_DELTA_SIZE = "1rem"    # ข้อความสถานะเล็กใต้ตัวเลข
 
@@ -94,16 +102,19 @@ try:
             st.error("⚠️ ไม่มีข้อมูลใหม่เข้ามานานผิดปกติ ตรวจสอบการเชื่อมต่อ Node-RED")
 
         cols = st.columns(4)
-        for col, (key, sheet_col) in zip(cols, AC_COLS.items()):
+        for col, key in zip(cols, SHEET_COLS.keys()):
+            sheet_col = SHEET_COLS[key]
+            label = DISPLAY_NAMES[key]
             value = float(latest[sheet_col])
             status, color = get_status(value, key)
-            col.metric(sheet_col, f"{value:.2f} kW", delta=status, delta_color=color)
+            col.metric(label, f"{value:.2f} kW", delta=status, delta_color=color)
 
-        total_kw = sum(float(latest[c]) for c in AC_COLS.values())
+        total_kw = sum(float(latest[c]) for c in SHEET_COLS.values())
         st.metric("รวมทั้งหมด (Total)", f"{total_kw:.2f} kW")
 
         st.subheader("แนวโน้มย้อนหลัง")
-        chart_df = df.tail(120).set_index(COL_TIME)[list(AC_COLS.values())]
+        chart_df = df.tail(120).set_index(COL_TIME)[list(SHEET_COLS.values())]
+        chart_df.columns = [DISPLAY_NAMES[k] for k in SHEET_COLS.keys()]
         st.line_chart(chart_df)
 
         with st.expander("ดูข้อมูลดิบล่าสุด 20 แถว"):
