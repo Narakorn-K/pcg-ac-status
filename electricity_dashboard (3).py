@@ -178,7 +178,7 @@ with tab1:
             age_sec = (now_th - last_time.to_pydatetime().replace(tzinfo=None)).total_seconds()
 
             st.caption(f"อัปเดตล่าสุด: {last_time.strftime('%Y-%m-%d %H:%M:%S')} ({int(age_sec)} วินาทีที่แล้ว)")
-            if age_sec > REFRESH_SEC * 80:
+            if age_sec > REFRESH_SEC * 4:
                 st.error("⚠️ ไม่มีข้อมูลใหม่เข้ามานานผิดปกติ ตรวจสอบการเชื่อมต่อ Node-RED")
 
             cols = st.columns(4)
@@ -238,6 +238,21 @@ with tab2:
 
             filtered = daily_df[daily_df["date"].dt.to_period("M") == selected_month].copy()
             filtered["day_label"] = filtered["date"].dt.strftime("%d/%m") + " (" + filtered["weekday"] + ")"
+
+            st.markdown(f"**สรุปยอดใช้ไฟฟ้าเดือน {month_labels[selected_month]}**")
+            summary = filtered.groupby("meter_name", sort=False)[["on_peak", "off_peak", "total"]].sum()
+            summary = summary.reindex([DISPLAY_NAMES[k] for k in ["ac1_3", "ac4_6", "ac7", "ac8"]])
+
+            card_cols = st.columns(4)
+            for card_col, meter_name in zip(card_cols, summary.index):
+                row = summary.loc[meter_name]
+                card_col.metric(
+                    meter_name,
+                    f"{row['total']:,.0f} kWh",
+                    delta=f"On Peak {row['on_peak']:,.0f} | Off Peak {row['off_peak']:,.0f}",
+                    delta_color="off",
+                )
+            st.metric("รวมทั้งหมด (Total เดือนนี้)", f"{summary['total'].sum():,.0f} kWh")
 
             bar_chart = (
                 alt.Chart(filtered)
