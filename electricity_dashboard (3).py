@@ -21,7 +21,7 @@ from streamlit_autorefresh import st_autorefresh
 # ============== CONFIG (แก้ตรงนี้ให้ตรงกับของคุณ) ==============
 # หา SHEET_ID จาก URL ของ Google Sheet:
 # https://docs.google.com/spreadsheets/d/[SHEET_ID]/edit#gid=[GID]
-SHEET_ID = "YOUR_SHEET_ID_HERE"
+SHEET_ID = "1gFKOoTb9XnarHqawBima7fuDb82yg5KXFqL15f_plpw"
 GID = "0"  # เลข gid ของแท็บ (ดูจากท้าย URL หลัง #gid=)
 
 # ชื่อคอลัมน์ตามหัวตารางในชีต (ต้องตรงกับที่เห็นในสกรีนช็อต)
