@@ -55,10 +55,10 @@ st.set_page_config(page_title="AC Compressor Power Monitor", page_icon="⚡", la
 st_autorefresh(interval=REFRESH_SEC * 1000, key="refresh")
 
 # ============== ปรับขนาดฟอนต์ตรงนี้ ==============
-TITLE_FONT_SIZE = "2.8rem"    # หัวข้อบนสุด
-METRIC_LABEL_SIZE = "1.5rem"  # ชื่อหัวข้อในแต่ละกล่อง (เช่น AC1-3)
-METRIC_VALUE_SIZE = "3.0rem"  # ตัวเลข kW ตัวใหญ่
-METRIC_DELTA_SIZE = "1.2rem"    # ข้อความสถานะเล็กใต้ตัวเลข
+TITLE_FONT_SIZE = "2.2rem"    # หัวข้อบนสุด
+METRIC_LABEL_SIZE = "1.2rem"  # ชื่อหัวข้อในแต่ละกล่อง (เช่น AC1-3)
+METRIC_VALUE_SIZE = "2.2rem"  # ตัวเลข kW ตัวใหญ่
+METRIC_DELTA_SIZE = "1.0rem"    # ข้อความสถานะเล็กใต้ตัวเลข
 CHART_LEGEND_SIZE = 14        # ขนาดตัวอักษร legend ใต้กราฟ (หน่วย px ไม่ใช่ rem)
 CHART_AXIS_SIZE = 12          # ขนาดตัวอักษรแกนกราฟ (หน่วย px)
 
