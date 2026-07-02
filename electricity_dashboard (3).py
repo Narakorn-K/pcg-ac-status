@@ -56,7 +56,7 @@ st_autorefresh(interval=REFRESH_SEC * 1000, key="refresh")
 TITLE_FONT_SIZE = "3.0rem"    # หัวข้อบนสุด
 METRIC_LABEL_SIZE = "3.0rem"  # ชื่อหัวข้อในแต่ละกล่อง (เช่น AC1-3)
 METRIC_VALUE_SIZE = "2.8rem"  # ตัวเลข kW ตัวใหญ่
-METRIC_DELTA_SIZE = "1rem"    # ข้อความสถานะเล็กใต้ตัวเลข
+METRIC_DELTA_SIZE = "2rem"    # ข้อความสถานะเล็กใต้ตัวเลข
 
 st.markdown(f"""
 <style>
