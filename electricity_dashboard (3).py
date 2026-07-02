@@ -71,6 +71,7 @@ METRIC_VALUE_SIZE = "2.8rem"
 METRIC_DELTA_SIZE = "1rem"
 CHART_LEGEND_SIZE = 14
 CHART_AXIS_SIZE = 12
+PAGE_TOP_PADDING = "1.5rem"  # ระยะห่างจากขอบบนสุดของหน้า ลดตัวเลขให้ชิดขึ้น
 
 st.markdown(f"""
 <style>
@@ -78,6 +79,7 @@ h1 {{ font-size: {TITLE_FONT_SIZE} !important; }}
 div[data-testid="stMetricLabel"] p {{ font-size: {METRIC_LABEL_SIZE} !important; }}
 div[data-testid="stMetricValue"] {{ font-size: {METRIC_VALUE_SIZE} !important; }}
 div[data-testid="stMetricDelta"] {{ font-size: {METRIC_DELTA_SIZE} !important; }}
+div.block-container {{ padding-top: {PAGE_TOP_PADDING} !important; }}
 </style>
 """, unsafe_allow_html=True)
 # ====================================================
