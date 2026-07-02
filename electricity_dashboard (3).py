@@ -13,9 +13,10 @@ Streamlit dashboard: แสดงค่าไฟฟ้า (kW) ของ Air Com
 
 import streamlit as st
 import pandas as pd
+import altair as alt
 import requests
 from io import StringIO
-from datetime import datetime
+from datetime import datetime, timedelta
 from streamlit_autorefresh import st_autorefresh
 
 # ============== CONFIG (แก้ตรงนี้ให้ตรงกับของคุณ) ==============
@@ -45,6 +46,7 @@ DISPLAY_NAMES = {
 RUN_STOP_THRESHOLD = 20  # >= ค่านี้ = Run, ต่ำกว่า = Stop
 
 REFRESH_SEC = 15  # ความถี่ในการอัปเดตหน้าจอ (วินาที)
+TZ_OFFSET_HOURS = 7  # timestamp ในชีตเป็นเวลาไทย (UTC+7) แต่ server รันเป็น UTC เลยต้องชดเชยตรงนี้
 # ================================================================
 
 CSV_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={GID}"
@@ -53,15 +55,17 @@ st.set_page_config(page_title="AC Compressor Power Monitor", page_icon="⚡", la
 st_autorefresh(interval=REFRESH_SEC * 1000, key="refresh")
 
 # ============== ปรับขนาดฟอนต์ตรงนี้ ==============
-TITLE_FONT_SIZE = "3.0rem"    # หัวข้อบนสุด
-METRIC_LABEL_SIZE = "3.0rem"  # ชื่อหัวข้อในแต่ละกล่อง (เช่น AC1-3)
+TITLE_FONT_SIZE = "2.2rem"    # หัวข้อบนสุด
+METRIC_LABEL_SIZE = "1.1rem"  # ชื่อหัวข้อในแต่ละกล่อง (เช่น AC1-3)
 METRIC_VALUE_SIZE = "2.8rem"  # ตัวเลข kW ตัวใหญ่
-METRIC_DELTA_SIZE = "2rem"    # ข้อความสถานะเล็กใต้ตัวเลข
+METRIC_DELTA_SIZE = "1rem"    # ข้อความสถานะเล็กใต้ตัวเลข
+CHART_LEGEND_SIZE = 14        # ขนาดตัวอักษร legend ใต้กราฟ (หน่วย px ไม่ใช่ rem)
+CHART_AXIS_SIZE = 12          # ขนาดตัวอักษรแกนกราฟ (หน่วย px)
 
 st.markdown(f"""
 <style>
 h1 {{ font-size: {TITLE_FONT_SIZE} !important; }}
-div[data-testid="stMetricLabel"] {{ font-size: {METRIC_LABEL_SIZE} !important; }}
+div[data-testid="stMetricLabel"] p {{ font-size: {METRIC_LABEL_SIZE} !important; }}
 div[data-testid="stMetricValue"] {{ font-size: {METRIC_VALUE_SIZE} !important; }}
 div[data-testid="stMetricDelta"] {{ font-size: {METRIC_DELTA_SIZE} !important; }}
 </style>
@@ -95,7 +99,8 @@ try:
     else:
         latest = df.iloc[-1]
         last_time = latest[COL_TIME]
-        age_sec = (datetime.now() - last_time.to_pydatetime().replace(tzinfo=None)).total_seconds()
+        now_th = datetime.utcnow() + timedelta(hours=TZ_OFFSET_HOURS)
+        age_sec = (now_th - last_time.to_pydatetime().replace(tzinfo=None)).total_seconds()
 
         st.caption(f"อัปเดตล่าสุด: {last_time.strftime('%Y-%m-%d %H:%M:%S')} ({int(age_sec)} วินาทีที่แล้ว)")
         if age_sec > REFRESH_SEC * 4:
@@ -113,9 +118,24 @@ try:
         st.metric("รวมทั้งหมด (Total)", f"{total_kw:.2f} kW")
 
         st.subheader("แนวโน้มย้อนหลัง")
-        chart_df = df.tail(120).set_index(COL_TIME)[list(SHEET_COLS.values())]
-        chart_df.columns = [DISPLAY_NAMES[k] for k in SHEET_COLS.keys()]
-        st.line_chart(chart_df)
+        chart_df = df.tail(120)[[COL_TIME] + list(SHEET_COLS.values())]
+        chart_df = chart_df.rename(columns={SHEET_COLS[k]: DISPLAY_NAMES[k] for k in SHEET_COLS.keys()})
+        chart_long = chart_df.melt(id_vars=COL_TIME, var_name="กลุ่ม", value_name="kW")
+
+        line_chart = (
+            alt.Chart(chart_long)
+            .mark_line()
+            .encode(
+                x=alt.X(f"{COL_TIME}:T", title=None, axis=alt.Axis(labelFontSize=CHART_AXIS_SIZE, titleFontSize=CHART_AXIS_SIZE)),
+                y=alt.Y("kW:Q", axis=alt.Axis(labelFontSize=CHART_AXIS_SIZE, titleFontSize=CHART_AXIS_SIZE)),
+                color=alt.Color(
+                    "กลุ่ม:N",
+                    legend=alt.Legend(title=None, labelFontSize=CHART_LEGEND_SIZE, symbolStrokeWidth=3),
+                ),
+            )
+            .properties(height=350)
+        )
+        st.altair_chart(line_chart, use_container_width=True)
 
         with st.expander("ดูข้อมูลดิบล่าสุด 20 แถว"):
             st.dataframe(df.tail(20).sort_values(COL_TIME, ascending=False), use_container_width=True)
