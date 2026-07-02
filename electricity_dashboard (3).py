@@ -87,6 +87,7 @@ div[data-testid="stMetricDelta"] {{ font-size: {METRIC_DELTA_SIZE} !important; }
 def load_realtime_data():
     resp = requests.get(CSV_URL, timeout=10)
     resp.raise_for_status()
+    resp.encoding = "utf-8"
     df = pd.read_csv(StringIO(resp.text))
     df[COL_TIME] = pd.to_datetime(df[COL_TIME], errors="coerce", dayfirst=True)
     df = df.dropna(subset=[COL_TIME]).sort_values(COL_TIME)
@@ -116,6 +117,7 @@ def _parse_number(x):
 def load_daily_data():
     resp = requests.get(DAILY_CSV_URL, timeout=15)
     resp.raise_for_status()
+    resp.encoding = "utf-8"
     raw = pd.read_csv(StringIO(resp.text), header=None)
 
     date_row = raw.iloc[0]
@@ -176,7 +178,7 @@ with tab1:
             age_sec = (now_th - last_time.to_pydatetime().replace(tzinfo=None)).total_seconds()
 
             st.caption(f"อัปเดตล่าสุด: {last_time.strftime('%Y-%m-%d %H:%M:%S')} ({int(age_sec)} วินาทีที่แล้ว)")
-            if age_sec > REFRESH_SEC * 4:
+            if age_sec > REFRESH_SEC * 80:
                 st.error("⚠️ ไม่มีข้อมูลใหม่เข้ามานานผิดปกติ ตรวจสอบการเชื่อมต่อ Node-RED")
 
             cols = st.columns(4)
