@@ -49,6 +49,22 @@ CSV_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&
 st.set_page_config(page_title="AC Compressor Power Monitor", page_icon="⚡", layout="wide")
 st_autorefresh(interval=REFRESH_SEC * 1000, key="refresh")
 
+# ============== ปรับขนาดฟอนต์ตรงนี้ ==============
+TITLE_FONT_SIZE = "2.2rem"    # หัวข้อบนสุด
+METRIC_LABEL_SIZE = "1.1rem"  # ชื่อหัวข้อในแต่ละกล่อง (เช่น AC1-3)
+METRIC_VALUE_SIZE = "2.8rem"  # ตัวเลข kW ตัวใหญ่
+METRIC_DELTA_SIZE = "1rem"    # ข้อความสถานะเล็กใต้ตัวเลข
+
+st.markdown(f"""
+<style>
+h1 {{ font-size: {TITLE_FONT_SIZE} !important; }}
+div[data-testid="stMetricLabel"] {{ font-size: {METRIC_LABEL_SIZE} !important; }}
+div[data-testid="stMetricValue"] {{ font-size: {METRIC_VALUE_SIZE} !important; }}
+div[data-testid="stMetricDelta"] {{ font-size: {METRIC_DELTA_SIZE} !important; }}
+</style>
+""", unsafe_allow_html=True)
+# ====================================================
+
 
 @st.cache_data(ttl=REFRESH_SEC)
 def load_data():
