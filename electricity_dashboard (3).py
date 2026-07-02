@@ -27,19 +27,14 @@ GID = "0"  # เลข gid ของแท็บ (ดูจากท้าย UR
 # ชื่อคอลัมน์ตามหัวตารางในชีต (ต้องตรงกับที่เห็นในสกรีนช็อต)
 COL_TIME = "Timestamp"
 AC_COLS = {
-    "ac1_3": "AC1-3",
-    "ac4_6": "AC4-6",
-    "ac7": "AC7",
-    "ac8": "AC8",
+    "ac1_3": "AC1-3 (Production)",
+    "ac4_6": "AC4-6 (Production)",
+    "ac7": "AC7 (Packing)",
+    "ac8": "AC8 (Packing)",
 }
 
-# threshold สำหรับแสดงสถานะแยกตามกลุ่ม (kW) ปรับตามพิกัดเครื่องจริงของแต่ละกลุ่ม
-THRESHOLDS = {
-    "ac1_3": {"warning": 55, "critical": 65},
-    "ac4_6": {"warning": 240, "critical": 260},
-    "ac7":   {"warning": 95,  "critical": 105},
-    "ac8":   {"warning": 95,  "critical": 105},
-}
+# threshold สถานะ Run/Stop (kW) ใช้เกณฑ์เดียวกันทุก AC
+RUN_STOP_THRESHOLD = 20  # >= ค่านี้ = Run, ต่ำกว่า = Stop
 
 REFRESH_SEC = 15  # ความถี่ในการอัปเดตหน้าจอ (วินาที)
 # ================================================================
@@ -51,7 +46,7 @@ st_autorefresh(interval=REFRESH_SEC * 1000, key="refresh")
 
 # ============== ปรับขนาดฟอนต์ตรงนี้ ==============
 TITLE_FONT_SIZE = "2.2rem"    # หัวข้อบนสุด
-METRIC_LABEL_SIZE = "1.1rem"  # ชื่อหัวข้อในแต่ละกล่อง (เช่น AC1-3)
+METRIC_LABEL_SIZE = "3rem"  # ชื่อหัวข้อในแต่ละกล่อง (เช่น AC1-3)
 METRIC_VALUE_SIZE = "2.8rem"  # ตัวเลข kW ตัวใหญ่
 METRIC_DELTA_SIZE = "1rem"    # ข้อความสถานะเล็กใต้ตัวเลข
 
@@ -76,14 +71,11 @@ def load_data():
     return df
 
 
-def get_status(value, key):
-    th = THRESHOLDS[key]
-    if value >= th["critical"]:
-        return "สูงเกินกำหนด", "inverse"
-    elif value >= th["warning"]:
-        return "ใกล้เต็มพิกัด", "off"
+def get_status(value, key=None):
+    if value >= RUN_STOP_THRESHOLD:
+        return "Run", "normal"
     else:
-        return "ปกติ", "normal"
+        return "Stop", "off"
 
 
 st.title("⚡ สถานะการใช้ไฟฟ้า Air Compressor")
